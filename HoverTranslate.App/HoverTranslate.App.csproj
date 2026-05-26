@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>HoverTranslate</AssemblyName>
+    <Product>炫译</Product>
+    <AssemblyTitle>炫译</AssemblyTitle>
+    <Description>炫译 — 悬停与热键翻译</Description>
+    <ApplicationIcon>Assets\xuanyi.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HoverTranslate.Core\HoverTranslate.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\config.example.json" Link="config.example.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Include="Assets\xuanyi.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

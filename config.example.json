@@ -1,0 +1,53 @@
+{
+  "provider": "auto",
+  "autoProviderIds": [],
+  "hotkey": "Ctrl+Shift+T",
+  "enableHistory": false,
+  "enableHover": true,
+  "hoverDelayMs": 500,
+  "hoverMinDebounceMs": 400,
+  "hoverCacheTtlSeconds": 300,
+  "hoverCacheMaxEntries": 256,
+  "hoverMaxRequestsPerSecond": 2,
+  "hoverRetryMaxAttempts": 2,
+  "hoverBackoffBaseMs": 2000,
+  "hoverBackoffMaxMs": 60000,
+  "useHistoryPanel": true,
+  "overlayTimeoutMs": 8000,
+  "sanitize": true,
+  "maxCharsPerRequest": 2000,
+  "apiProfiles": [
+    {
+      "id": "example-openai",
+      "name": "示例：OpenAI 兼容（请改 id 并填 Key）",
+      "kind": "openai",
+      "apiKey": "",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-chat",
+      "enabled": false
+    },
+    {
+      "id": "example-microsoft",
+      "name": "示例：微软翻译",
+      "kind": "microsoft",
+      "apiKey": "",
+      "region": "global",
+      "enabled": false
+    },
+    {
+      "id": "example-google",
+      "name": "示例：谷歌翻译",
+      "kind": "google",
+      "apiKey": "",
+      "enabled": false
+    }
+  ],
+  "translationPanel": { "width": 360, "height": 180 },
+  "historyPanel": { "width": 360, "height": 400 },
+  "translationPanelUi": { "opacity": 0.9, "showExtras": false, "theme": "dark" },
+  "historyPanelUi": { "opacity": 0.9, "showExtras": false, "theme": "dark" },
+  "glossary": {
+    "Agent": "智能体",
+    "User Rules": "用户规则"
+  }
+}

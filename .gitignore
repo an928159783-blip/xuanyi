@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+config.json
+.env
+*.db
+publish/
+dist/

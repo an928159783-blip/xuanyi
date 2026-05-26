@@ -1,0 +1,52 @@
+<Window x:Class="HoverTranslate.App.Windows.TranslationResultWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="译文"
+        Width="360" Height="180"
+        MinWidth="260" MinHeight="100"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        LocationChanged="OnPlacementChanged"
+        SizeChanged="OnPlacementChanged">
+  <Border x:Name="RootBorder" CornerRadius="10" BorderBrush="#80313244" BorderThickness="1"
+          Background="#E61e1e2e">
+    <Grid x:Name="ResizeHost">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="26"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+      <Grid Grid.Row="0" Panel.ZIndex="10">
+        <Border x:Name="DragHandle" Background="Transparent" Margin="0,0,100,0" Cursor="SizeAll"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,1,2,0" IsHitTestVisible="True">
+          <Button x:Name="MinButton"/>
+          <Button x:Name="MaxButton"/>
+          <Button x:Name="CloseButton"/>
+        </StackPanel>
+      </Grid>
+      <ScrollViewer x:Name="ContentScroll" Grid.Row="1"
+                    VerticalScrollBarVisibility="Hidden"
+                    HorizontalScrollBarVisibility="Disabled"
+                    Padding="12,0,12,12">
+        <StackPanel>
+          <TextBlock x:Name="SourceText" TextWrapping="Wrap" FontSize="12" Visibility="Collapsed"/>
+          <TextBlock x:Name="TargetText" TextWrapping="Wrap" FontSize="14" LineHeight="20"/>
+          <StackPanel x:Name="ExtrasPanel" Margin="0,10,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="StatusText" FontSize="10"/>
+            <Button Content="复制译文" HorizontalAlignment="Right" Margin="0,6,0,0"
+                    Click="OnCopy" Padding="8,3" FontSize="11"/>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+      <Border x:Name="ResizeRight" Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="12"
+              Background="Transparent" Panel.ZIndex="500"/>
+      <Border x:Name="ResizeBottom" Grid.Row="0" Grid.RowSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="12"
+              Background="Transparent" Margin="0,0,12,0" Panel.ZIndex="500"/>
+      <Border x:Name="ResizeCorner" Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16"
+              Background="Transparent" Panel.ZIndex="501"/>
+    </Grid>
+  </Border>
+</Window>
