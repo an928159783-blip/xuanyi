@@ -7,6 +7,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Settings API data-residency notice; translation panel machine-translation disclaimer (P2).
+- Privacy policy, terms, compliance/distribution docs; settings & tray links for legal docs and update check (P3).
 - Floating panel close button on translation and history windows.
 - P1: coverlet coverage script, MockHttp integration tests, gitleaks config, diagnostic ZIP export, history JSON export.
 - Tray menu and settings: export diagnostics; rolling `startup.log`.

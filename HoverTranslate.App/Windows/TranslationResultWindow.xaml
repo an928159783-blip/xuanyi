@@ -18,6 +18,7 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="26"/>
         <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
       <Grid Grid.Row="0" Panel.ZIndex="10">
         <Border x:Name="DragHandle" Background="Transparent" Margin="0,0,100,0" Cursor="SizeAll"/>
@@ -41,11 +42,13 @@
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
-      <Border x:Name="ResizeRight" Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="12"
+      <TextBlock x:Name="MachineTranslationHint" Grid.Row="2" Text="机器翻译，仅供参考"
+                 FontSize="10" HorizontalAlignment="Center" Margin="0,0,0,6" Opacity="0.65"/>
+      <Border x:Name="ResizeRight" Grid.Row="0" Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="12"
               Background="Transparent" Panel.ZIndex="500"/>
-      <Border x:Name="ResizeBottom" Grid.Row="0" Grid.RowSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="12"
+      <Border x:Name="ResizeBottom" Grid.Row="0" Grid.RowSpan="3" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="12"
               Background="Transparent" Margin="0,0,12,0" Panel.ZIndex="500"/>
-      <Border x:Name="ResizeCorner" Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16"
+      <Border x:Name="ResizeCorner" Grid.Row="0" Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16"
               Background="Transparent" Panel.ZIndex="501"/>
     </Grid>
   </Border>

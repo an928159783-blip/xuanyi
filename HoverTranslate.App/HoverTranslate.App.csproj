@@ -11,6 +11,7 @@
     <Product>炫译</Product>
     <AssemblyTitle>炫译</AssemblyTitle>
     <Description>炫译 — 悬停与热键翻译</Description>
+    <Version>0.1.0</Version>
     <ApplicationIcon>Assets\xuanyi.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
@@ -21,6 +22,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Content Include="Assets\xuanyi.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\docs\privacy.md" Link="docs\privacy.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\docs\terms.md" Link="docs\terms.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\docs\compliance-ai-memo.md" Link="docs\compliance-ai-memo.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -64,6 +64,7 @@ public partial class SettingsWindow : Window
         Loaded += (_, _) =>
         {
             FloatingPanelChrome.WireAllScrollViewers(this);
+            AboutVersionText.Text = $"版本 {UpdateCheckService.CurrentVersion}";
             _uiReady = true;
             LoadFromDisk();
             ShowNavPanel(0);
@@ -379,6 +380,13 @@ public partial class SettingsWindow : Window
         Directory.CreateDirectory(ConfigService.ConfigDirectory);
         Process.Start(new ProcessStartInfo(ConfigService.ConfigDirectory) { UseShellExecute = true });
     }
+
+    private void OnOpenPrivacy(object sender, RoutedEventArgs e) => LegalDocuments.Open("privacy.md");
+
+    private void OnOpenTerms(object sender, RoutedEventArgs e) => LegalDocuments.Open("terms.md");
+
+    private async void OnCheckUpdate(object sender, RoutedEventArgs e) =>
+        await UpdateCheckService.CheckAndNotifyAsync(this).ConfigureAwait(true);
 
     private void OnExportHistory(object sender, RoutedEventArgs e)
     {

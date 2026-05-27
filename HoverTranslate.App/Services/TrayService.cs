@@ -111,6 +111,13 @@ public sealed class TrayService : IDisposable
         settings.Click += (_, _) => _onOpenSettings();
         menu.Items.Add(settings);
 
+        var checkUpdate = new ToolStripMenuItem("检查更新")
+        {
+            ToolTipText = $"当前版本 {UpdateCheckService.CurrentVersion}"
+        };
+        checkUpdate.Click += (_, _) => _ = UpdateCheckService.CheckAndNotifyAsync(null);
+        menu.Items.Add(checkUpdate);
+
         var exportDiag = new ToolStripMenuItem("导出诊断包")
         {
             ToolTipText = "导出日志与脱敏配置（不含 API Key）"

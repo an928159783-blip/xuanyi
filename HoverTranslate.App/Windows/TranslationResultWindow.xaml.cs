@@ -68,11 +68,10 @@ public partial class TranslationResultWindow : System.Windows.Window
     public void ApplyAppearance(PanelChromeOptions options)
     {
         FloatingPanelChrome.ApplyAppearance(this, RootBorder, options, TargetText, SourceText);
+        var colors = PanelAppearance.GetTheme(options.Theme);
+        MachineTranslationHint.Foreground = new System.Windows.Media.SolidColorBrush(colors.SubText);
         if (ExtrasPanel.Visibility == System.Windows.Visibility.Visible)
-        {
-            var sub = PanelAppearance.GetTheme(options.Theme).SubText;
-            StatusText.Foreground = new System.Windows.Media.SolidColorBrush(sub);
-        }
+            StatusText.Foreground = new System.Windows.Media.SolidColorBrush(colors.SubText);
         ExtrasPanel.Visibility = options.ShowExtras
             ? System.Windows.Visibility.Visible
             : System.Windows.Visibility.Collapsed;
