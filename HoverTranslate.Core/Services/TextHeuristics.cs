@@ -34,19 +34,37 @@ public static class TextHeuristics
     public static bool ShouldTranslateOnHover(string text) =>
         IsMostlyEnglish(text) && !ContainsSignificantCjk(text);
 
-    /// <summary>悬停：整段英文或段落中的英文词/短语</summary>
-    public static string? ResolveHoverTarget(string? raw)
+    /// <summary>悬停/指针取词：与「翻译方向」一致，自动英↔中。</summary>
+    public static string? ResolveHoverTarget(string? raw, string? translationDirection = null)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         raw = raw.Trim();
         if (raw.Length > 800) raw = raw[..800];
 
+        return TranslationDirectionResolver.NormalizeMode(translationDirection) switch
+        {
+            TranslationDirectionResolver.ModeEnToZh => ResolveEnglishTarget(raw),
+            TranslationDirectionResolver.ModeZhToEn =>
+                ContainsSignificantCjk(raw) ? raw : null,
+            _ => ResolveAutoHoverTarget(raw)
+        };
+    }
+
+    private static string? ResolveAutoHoverTarget(string raw)
+    {
+        if (IsMostlyEnglish(raw) && !ContainsSignificantCjk(raw))
+            return raw;
+        if (ContainsSignificantCjk(raw))
+            return raw;
+        return ExtractBestEnglishSpan(raw);
+    }
+
+    private static string? ResolveEnglishTarget(string raw)
+    {
         if (ShouldTranslateOnHover(raw))
             return raw;
-
         if (IsEnglishSnippet(raw))
             return raw;
-
         return ExtractBestEnglishSpan(raw);
     }
 

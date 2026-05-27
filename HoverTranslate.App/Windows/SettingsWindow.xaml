@@ -256,7 +256,9 @@
                   <Button Content="恢复默认" Margin="8,0,0,0" VerticalAlignment="Center" Click="OnResetHotkey"/>
                 </StackPanel>
                 <TextBlock x:Name="HotkeyHintText" Style="{StaticResource SettingSmallHint}" Margin="0,0,0,16"/>
-                <CheckBox x:Name="TranslateOnCopyCheck" Content="复制后自动翻译"/>
+                <CheckBox x:Name="TranslateOnSelectionCheck" Content="选中后自动翻译（无需按热键，自动英↔中）"
+                          Margin="0,0,0,6"/>
+                <CheckBox x:Name="TranslateOnCopyCheck" Content="复制后自动翻译（Ctrl+C 触发，自动英↔中）"/>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,12,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -272,7 +274,7 @@
                 </Grid>
                 <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,6,0,0"
                            TextWrapping="Wrap"
-                           Text="自动：根据文本判断英译中或中译英；后续版本可扩展更多语言对。"/>
+                           Text="自动：选中/复制/热键统一逻辑——英文→中文，中文→英文。悬停对 Electron 类软件仍可能无效。"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource SectionBorder}">

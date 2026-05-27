@@ -32,4 +32,19 @@ public class TranslationDirectionResolverTests
         Assert.Equal("zh-Hans", from);
         Assert.Equal("en", to);
     }
+
+    [Fact]
+    public void ShouldTranslateText_auto_accepts_chinese_and_english()
+    {
+        var config = new AppConfig();
+        Assert.True(TranslationDirectionResolver.ShouldTranslateText("你好世界", config));
+        Assert.True(TranslationDirectionResolver.ShouldTranslateText("Hello", config));
+    }
+
+    [Fact]
+    public void ResolveHoverTarget_auto_returns_chinese()
+    {
+        var text = TextHeuristics.ResolveHoverTarget("智能OCR技术", "auto");
+        Assert.Equal("智能OCR技术", text);
+    }
 }

@@ -66,7 +66,7 @@ public sealed class ClipboardTranslateService : IDisposable
             if (string.IsNullOrWhiteSpace(text) || text.Length < 2)
                 return IntPtr.Zero;
 
-            if (!LooksLikeTranslatable(text))
+            if (!TranslationDirectionResolver.ShouldTranslateText(text, config))
                 return IntPtr.Zero;
 
             var now = DateTime.UtcNow;
@@ -83,14 +83,6 @@ public sealed class ClipboardTranslateService : IDisposable
         }
 
         return IntPtr.Zero;
-    }
-
-    private static bool LooksLikeTranslatable(string text)
-    {
-        var letters = text.Count(char.IsLetter);
-        if (letters < 2) return false;
-        var latin = text.Count(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
-        return latin >= Math.Max(2, letters / 3);
     }
 
     public void Dispose() => Stop();

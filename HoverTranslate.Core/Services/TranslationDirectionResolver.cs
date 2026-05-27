@@ -57,13 +57,28 @@ public static class TranslationDirectionResolver
             """;
     }
 
-    private static string NormalizeMode(string? mode)
+    public static string NormalizeMode(string? mode)
     {
         var m = mode?.Trim().ToLowerInvariant();
         return m switch
         {
             ModeEnToZh or ModeZhToEn => m,
             _ => ModeAuto
+        };
+    }
+
+    /// <summary>选中/热键/复制：该文本是否应触发翻译（与翻译方向一致）。</summary>
+    public static bool ShouldTranslateText(string text, AppConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Trim().Length < 2)
+            return false;
+
+        var t = text.Trim();
+        return NormalizeMode(config.TranslationDirection) switch
+        {
+            ModeEnToZh => TextHeuristics.IsMostlyEnglish(t),
+            ModeZhToEn => TextHeuristics.ContainsSignificantCjk(t),
+            _ => TextHeuristics.IsMostlyEnglish(t) || TextHeuristics.ContainsSignificantCjk(t)
         };
     }
 }

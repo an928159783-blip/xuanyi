@@ -11,6 +11,8 @@ public sealed class AppConfig
     public string TranslationDirection { get; set; } = "auto";
     /// <summary>复制到剪贴板后自动翻译（选中后只需 Ctrl+C）</summary>
     public bool TranslateOnCopy { get; set; }
+    /// <summary>存在选区时自动翻译（无需按热键），方向同 TranslationDirection</summary>
+    public bool TranslateOnSelection { get; set; }
     public bool EnableHistory { get; set; } = true;
     public bool EnableHover { get; set; } = true;
     public int HoverDelayMs { get; set; } = 500;

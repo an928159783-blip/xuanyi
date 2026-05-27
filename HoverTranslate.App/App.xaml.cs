@@ -78,7 +78,7 @@ public partial class App : System.Windows.Application
             }
 
             ApplyClipboardTranslate(config);
-            ApplyHoverFromSettings(config.EnableHover);
+            ApplyHoverFromSettings(config.EnableHover || config.TranslateOnSelection);
 
             var hk = _hotkey.CurrentHotkey;
             Dispatcher.BeginInvoke(() =>
@@ -155,7 +155,8 @@ public partial class App : System.Windows.Application
 
     private void ApplyHoverFromSettings(bool enableHover)
     {
-        if (enableHover)
+        var config = _configService?.Load();
+        if (enableHover || config?.TranslateOnSelection == true)
             _hover?.Start();
         else
             _hover?.Stop();
@@ -187,7 +188,7 @@ public partial class App : System.Windows.Application
     private void OnSettingsSaved()
     {
         var config = _configService!.Load();
-        ApplyHoverFromSettings(config.EnableHover);
+        ApplyHoverFromSettings(config.EnableHover || config.TranslateOnSelection);
 
         try
         {
@@ -206,10 +207,12 @@ public partial class App : System.Windows.Application
         if (HistoryPanelWindow.IsPanelVisible)
             HistoryPanelWindow.Instance.ApplyAppearance(config.HistoryPanelUi);
 
-        _tray?.ShowBalloon(AppBranding.DisplayName,
-            config.EnableHover
-                ? "设置已保存。悬停翻译已开启。"
-                : "设置已保存。悬停翻译已关闭（仍可用热键翻译）。");
+        var modeHint = config.TranslateOnSelection
+            ? "选中即译已开启。"
+            : config.EnableHover
+                ? "悬停翻译已开启。"
+                : "仍可用热键/复制翻译。";
+        _tray?.ShowBalloon(AppBranding.DisplayName, $"设置已保存。{modeHint}");
     }
 
     private void OnShowHistory() => Current.Dispatcher.Invoke(() =>

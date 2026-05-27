@@ -14,6 +14,11 @@ public sealed class HoverTranslateService : IDisposable
     private int _lastX = -1, _lastY = -1;
     private string? _stableText;
     private int _textStillMs;
+
+    private string? _stableSelection;
+    private int _selectionStillMs;
+    private string? _lastSelectionTranslated;
+
     private bool _busy;
     private DateTime _pausedUntil = DateTime.MinValue;
 
@@ -27,7 +32,7 @@ public sealed class HoverTranslateService : IDisposable
 
     public void Start()
     {
-        if (!_configService.Load().EnableHover) return;
+        if (!_configService.Load().EnableHover && !_configService.Load().TranslateOnSelection) return;
         _timer.Start();
     }
 
@@ -36,13 +41,14 @@ public sealed class HoverTranslateService : IDisposable
     public void PauseFor(int milliseconds) =>
         _pausedUntil = DateTime.UtcNow.AddMilliseconds(milliseconds);
 
-    /// <summary>热键/手动翻译开始时：暂停悬停，避免用光标下单个词覆盖整段选中翻译。</summary>
     public void OnManualTranslateStarting()
     {
         _pausedUntil = DateTime.UtcNow.AddSeconds(15);
         _busy = true;
         _stableText = null;
         _textStillMs = 0;
+        _stableSelection = null;
+        _selectionStillMs = 0;
         _lastX = -1;
         _lastY = -1;
     }
@@ -54,13 +60,52 @@ public sealed class HoverTranslateService : IDisposable
         if (_busy || DateTime.UtcNow < _pausedUntil) return;
 
         var config = _configService.Load();
-        if (!config.EnableHover) return;
-
         if (IsLeftButtonDown()) return;
+
+        if (config.TranslateOnSelection && TryTickSelectionTranslate(config))
+            return;
+
+        if (!config.EnableHover) return;
 
         if (UiAutomationSelectionCapture.HasActiveSelection())
             return;
 
+        TickHoverTranslate(config);
+    }
+
+    private bool TryTickSelectionTranslate(AppConfig config)
+    {
+        var selection = UiAutomationSelectionCapture.TryGetSelectedText()?.Trim();
+        if (!TranslationDirectionResolver.ShouldTranslateText(selection ?? "", config))
+        {
+            _stableSelection = null;
+            _selectionStillMs = 0;
+            return false;
+        }
+
+        selection = selection!.Trim();
+        if (!string.Equals(selection, _stableSelection, StringComparison.Ordinal))
+        {
+            _stableSelection = selection;
+            _selectionStillMs = 0;
+            return true;
+        }
+
+        _selectionStillMs += 150;
+        var debounceMs = Math.Max(350, HoverProtectionOptions.FromConfig(config).EffectiveDebounceMs(config) / 2);
+        if (_selectionStillMs < debounceMs) return true;
+
+        if (string.Equals(selection, _lastSelectionTranslated, StringComparison.Ordinal))
+            return true;
+
+        _lastSelectionTranslated = selection;
+        _busy = true;
+        _ = RunSelectionTranslateAsync(selection);
+        return true;
+    }
+
+    private void TickHoverTranslate(AppConfig config)
+    {
         var pos = GetCursorPos();
         var moved = pos.X != _lastX || pos.Y != _lastY;
         if (moved)
@@ -73,9 +118,10 @@ public sealed class HoverTranslateService : IDisposable
         }
 
         var raw = UiAutomationTextCapture.GetTextAtScreenPoint(pos.X, pos.Y);
-        var text = TextHeuristics.ResolveHoverTarget(raw);
+        var text = TextHeuristics.ResolveHoverTarget(raw, config.TranslationDirection);
 
-        if (string.IsNullOrWhiteSpace(text) || text.Length < 2)
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 2
+            || !TranslationDirectionResolver.ShouldTranslateText(text, config))
         {
             _stableText = null;
             _textStillMs = 0;
@@ -95,6 +141,23 @@ public sealed class HoverTranslateService : IDisposable
 
         _busy = true;
         _ = RunHoverTranslateAsync(text);
+    }
+
+    private async Task RunSelectionTranslateAsync(string text)
+    {
+        try
+        {
+            await _coordinator.TranslateTextAsync(text, fromHover: false, forceShowTranslation: true)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                _busy = false;
+                _selectionStillMs = 0;
+            });
+        }
     }
 
     private async Task RunHoverTranslateAsync(string text)

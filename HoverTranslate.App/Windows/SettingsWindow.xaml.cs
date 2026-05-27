@@ -114,6 +114,7 @@ public partial class SettingsWindow : Window
         EnableHistoryCheck.IsChecked = _working.EnableHistory;
         CloseAfterSaveCheck.IsChecked = _working.CloseSettingsAfterSave;
         HotkeyBox.Text = string.IsNullOrWhiteSpace(_working.Hotkey) ? HotkeyParser.DefaultHotkey : _working.Hotkey;
+        TranslateOnSelectionCheck.IsChecked = _working.TranslateOnSelection;
         TranslateOnCopyCheck.IsChecked = _working.TranslateOnCopy;
         SelectTranslationDirection(_working.TranslationDirection);
         OverlayTimeoutBox.Text = (_working.OverlayTimeoutMs / 1000).ToString();
@@ -464,6 +465,7 @@ public partial class SettingsWindow : Window
         _working.HoverDelayMs = Math.Min(5000, delay);
         _working.EnableHistory = EnableHistoryCheck.IsChecked == true;
         _working.CloseSettingsAfterSave = CloseAfterSaveCheck.IsChecked == true;
+        _working.TranslateOnSelection = TranslateOnSelectionCheck.IsChecked == true;
         _working.TranslateOnCopy = TranslateOnCopyCheck.IsChecked == true;
         if (TranslationDirectionCombo.SelectedValue is string dir)
             _working.TranslationDirection = dir;
