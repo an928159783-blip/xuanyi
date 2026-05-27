@@ -1,0 +1,17 @@
+title = "炫译 gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hover-translate-config"
+description = "Local config.json with API keys"
+regex = '''(?i)"apiKey"\s*:\s*"[a-zA-Z0-9_\-]{8,}"'''
+path = '''config\.json$'''
+
+[allowlist]
+paths = [
+  '''config\.example\.json''',
+  '''\.md$''',
+  '''\.Tests/''',
+]

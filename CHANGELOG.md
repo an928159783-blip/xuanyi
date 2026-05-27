@@ -8,6 +8,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Floating panel close button on translation and history windows.
+- P1: coverlet coverage script, MockHttp integration tests, gitleaks config, diagnostic ZIP export, history JSON export.
+- Tray menu and settings: export diagnostics; rolling `startup.log`.
+
+### Changed
+- `MicrosoftTranslator` accepts injectable `HttpClient` for tests.
+- `CONTRIBUTING.md` with PR checklist.
 
 ## [0.1.0] - 2026-05-26
 

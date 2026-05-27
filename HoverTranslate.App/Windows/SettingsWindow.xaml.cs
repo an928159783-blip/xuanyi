@@ -380,6 +380,40 @@ public partial class SettingsWindow : Window
         Process.Start(new ProcessStartInfo(ConfigService.ConfigDirectory) { UseShellExecute = true });
     }
 
+    private void OnExportHistory(object sender, RoutedEventArgs e)
+    {
+        if (!_working.EnableHistory)
+        {
+            System.Windows.MessageBox.Show("请先在上方勾选「启用本地翻译历史」。", AppBranding.SettingsTitle,
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "导出翻译历史",
+            Filter = "JSON 文件|*.json",
+            FileName = $"xuanyi-history-{DateTime.Now:yyyyMMdd}.json"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        try
+        {
+            _historyStore.ExportToJsonFile(dialog.FileName);
+            System.Windows.MessageBox.Show($"已导出到：{dialog.FileName}", AppBranding.SettingsTitle);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"导出失败：{ex.Message}", AppBranding.SettingsTitle,
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnExportDiagnostics(object sender, RoutedEventArgs e) =>
+        Services.DiagnosticExportService.ExportWithPrompt();
+
     private void OnClearHistory(object sender, RoutedEventArgs e)
     {
         if (System.Windows.MessageBox.Show("确定清空本机全部翻译历史？", AppBranding.SettingsTitle,

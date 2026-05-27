@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HoverTranslate.Core.Models;
 using Microsoft.Data.Sqlite;
 
@@ -124,6 +125,15 @@ public sealed class HistoryStore : IDisposable
     }
 
     public void Clear() => Execute("DELETE FROM history");
+
+    public void ExportToJsonFile(string filePath, int limit = 10_000)
+    {
+        var entries = GetRecent(limit);
+        var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(filePath, json);
+    }
+
+    public static string DatabasePath => Path.Combine(ConfigService.ConfigDirectory, "history.db");
 
     public void Dispose() => _connection.Dispose();
 }

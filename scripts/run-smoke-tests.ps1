@@ -57,6 +57,10 @@ if (Test-Path $exe) {
     Test-Check "startup.log exists" (Test-Path $log)
 }
 
+Write-Host "=== Secret scan (gitleaks) ===" -ForegroundColor Cyan
+& (Join-Path $root "scripts\scan-secrets.ps1")
+if ($LASTEXITCODE -ne 0) { $script:fail++ }
+
 Write-Host ""
 if ($fail -eq 0) {
     Write-Host "All smoke checks passed." -ForegroundColor Green

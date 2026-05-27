@@ -111,6 +111,13 @@ public sealed class TrayService : IDisposable
         settings.Click += (_, _) => _onOpenSettings();
         menu.Items.Add(settings);
 
+        var exportDiag = new ToolStripMenuItem("导出诊断包")
+        {
+            ToolTipText = "导出日志与脱敏配置（不含 API Key）"
+        };
+        exportDiag.Click += (_, _) => DiagnosticExportService.ExportWithPrompt();
+        menu.Items.Add(exportDiag);
+
         menu.Items.Add(new ToolStripSeparator());
 
         var exit = new ToolStripMenuItem("退出炫译");

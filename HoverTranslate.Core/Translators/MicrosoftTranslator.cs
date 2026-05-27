@@ -9,9 +9,18 @@ namespace HoverTranslate.Core.Translators;
 public sealed class MicrosoftTranslator : ITranslator
 {
     private readonly ApiProfile _profile;
-    private static HttpClient Http => TranslationHttpClient.Instance;
+    private readonly HttpClient _http;
 
-    public MicrosoftTranslator(ApiProfile profile) => _profile = profile;
+    public MicrosoftTranslator(ApiProfile profile)
+        : this(profile, TranslationHttpClient.Instance)
+    {
+    }
+
+    internal MicrosoftTranslator(ApiProfile profile, HttpClient http)
+    {
+        _profile = profile;
+        _http = http;
+    }
 
     public string ProviderName => _profile.Name;
 
@@ -38,7 +47,7 @@ public sealed class MicrosoftTranslator : ITranslator
 
         try
         {
-            using var resp = await Http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+            using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
             var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
                 return TranslationResult.Fail(text, $"微软翻译 HTTP {(int)resp.StatusCode}: {Trim(body, 200)}");
