@@ -2,6 +2,9 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
+using System.Windows;
+using HoverTranslate.App.Windows;
+
 namespace HoverTranslate.App.Services;
 
 public static class UpdateCheckService
@@ -25,46 +28,37 @@ public static class UpdateCheckService
         }
     }
 
-    public static async Task CheckAndNotifyAsync(System.Windows.Window? owner)
+    public static async Task CheckAndNotifyAsync(Window? owner)
     {
         var latest = await TryGetLatestReleaseTagAsync().ConfigureAwait(true);
         if (latest is null)
         {
-            var open = System.Windows.MessageBox.Show(
-                owner,
-                $"当前版本：{CurrentVersion}\n\n无法在线检查更新（未配置仓库或网络不可用）。\n是否打开发行说明页面？",
-                AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Information);
-            if (open == System.Windows.MessageBoxResult.Yes)
-                OpenReleasesPage();
+            if (AppDialog.Confirm(
+                    $"当前版本：{CurrentVersion}\n\n无法在线检查更新（未配置仓库或网络不可用）。\n是否打开发行说明页面？",
+                    AppBranding.DisplayName,
+                    owner,
+                    MessageBoxImage.Information))
+                OpenReleasesPage(owner);
             return;
         }
 
         var tag = latest.TrimStart('v', 'V');
         if (IsNewerVersion(tag, CurrentVersion))
         {
-            var go = System.Windows.MessageBox.Show(
-                owner,
-                $"发现新版本：{latest}\n当前版本：{CurrentVersion}\n\n是否打开下载页面？",
-                AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Information);
-            if (go == System.Windows.MessageBoxResult.Yes)
-                OpenReleasesPage();
+            if (AppDialog.Confirm(
+                    $"发现新版本：{latest}\n当前版本：{CurrentVersion}\n\n是否打开下载页面？",
+                    AppBranding.DisplayName,
+                    owner,
+                    MessageBoxImage.Information))
+                OpenReleasesPage(owner);
         }
         else
         {
-            System.Windows.MessageBox.Show(
-                owner,
-                $"当前已是最新版本（{CurrentVersion}）。",
-                AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            AppDialog.Info($"当前已是最新版本（{CurrentVersion}）。", AppBranding.DisplayName, owner);
         }
     }
 
-    public static void OpenReleasesPage()
+    public static void OpenReleasesPage(Window? owner = null)
     {
         try
         {
@@ -72,11 +66,7 @@ public static class UpdateCheckService
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(
-                $"无法打开浏览器：{ex.Message}\n{AppBranding.ReleasesPageUrl}",
-                AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
+            AppDialog.Warning($"无法打开浏览器：{ex.Message}\n{AppBranding.ReleasesPageUrl}", AppBranding.DisplayName, owner);
         }
     }
 

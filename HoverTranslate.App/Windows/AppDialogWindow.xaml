@@ -1,0 +1,62 @@
+<Window x:Class="HoverTranslate.App.Windows.AppDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="炫译"
+        SizeToContent="WidthAndHeight"
+        MinWidth="400"
+        MaxWidth="480"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Microsoft YaHei UI, Microsoft YaHei, Segoe UI"
+        FontSize="14"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Themes/SettingsFrostTheme.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <Style TargetType="Button" BasedOn="{StaticResource FrostButton}"/>
+      <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource FrostPrimaryButton}"/>
+      <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource FrostDangerButton}"/>
+    </ResourceDictionary>
+  </Window.Resources>
+
+  <Border Background="White" CornerRadius="12" BorderBrush="#E2E8F0" BorderThickness="1" Padding="0" Margin="12">
+    <Border.Effect>
+      <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.18" Color="#0F172A"/>
+    </Border.Effect>
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0" Background="#F7F8FA" BorderBrush="#E8EDF5" BorderThickness="0,0,0,1"
+              CornerRadius="12,12,0,0" Padding="20,14">
+        <DockPanel LastChildFill="True">
+          <Border x:Name="IconHost" Width="36" Height="36" CornerRadius="18" Margin="0,0,12,0"
+                  VerticalAlignment="Center" DockPanel.Dock="Left">
+            <TextBlock x:Name="IconGlyph" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock x:Name="TitleText" Style="{StaticResource SettingPageTitle}" VerticalAlignment="Center"
+                     TextWrapping="Wrap"/>
+        </DockPanel>
+      </Border>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="280" Padding="20,16,20,8">
+        <TextBlock x:Name="MessageText" Style="{StaticResource SettingsBodyText}" TextWrapping="Wrap" LineHeight="22"/>
+      </ScrollViewer>
+
+      <Border Grid.Row="2" Background="#FAFBFC" BorderBrush="#E8EDF5" BorderThickness="0,1,0,0"
+              CornerRadius="0,0,12,12" Padding="16,12">
+        <StackPanel x:Name="ButtonPanel" Orientation="Horizontal" HorizontalAlignment="Right"/>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

@@ -354,8 +354,7 @@ public partial class SettingsWindow : Window
     private void OnDeleteProfile(object sender, RoutedEventArgs e)
     {
         if (ProfileList.SelectedItem is not ApiProfile profile) return;
-        if (System.Windows.MessageBox.Show($"删除接口「{profile.Name}」？", AppBranding.SettingsTitle,
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (!AppDialog.Confirm($"删除接口「{profile.Name}」？", owner: this))
             return;
 
         _working.ApiProfiles.Remove(profile);
@@ -381,7 +380,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"无法打开浏览器：{ex.Message}\n{url}", AppBranding.SettingsTitle);
+            AppDialog.Warning($"无法打开浏览器：{ex.Message}\n{url}", owner: this);
         }
     }
 
@@ -391,9 +390,9 @@ public partial class SettingsWindow : Window
         Process.Start(new ProcessStartInfo(ConfigService.ConfigDirectory) { UseShellExecute = true });
     }
 
-    private void OnOpenPrivacy(object sender, RoutedEventArgs e) => LegalDocuments.Open("privacy.md");
+    private void OnOpenPrivacy(object sender, RoutedEventArgs e) => LegalDocuments.Open("privacy.md", this);
 
-    private void OnOpenTerms(object sender, RoutedEventArgs e) => LegalDocuments.Open("terms.md");
+    private void OnOpenTerms(object sender, RoutedEventArgs e) => LegalDocuments.Open("terms.md", this);
 
     private async void OnCheckUpdate(object sender, RoutedEventArgs e) =>
         await UpdateCheckService.CheckAndNotifyAsync(this).ConfigureAwait(true);
@@ -402,8 +401,7 @@ public partial class SettingsWindow : Window
     {
         if (!_working.EnableHistory)
         {
-            System.Windows.MessageBox.Show("请先在上方勾选「启用本地翻译历史」。", AppBranding.SettingsTitle,
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Info("请先在上方勾选「启用本地翻译历史」。", owner: this);
             return;
         }
 
@@ -420,12 +418,11 @@ public partial class SettingsWindow : Window
         try
         {
             _historyStore.ExportToJsonFile(dialog.FileName);
-            System.Windows.MessageBox.Show($"已导出到：{dialog.FileName}", AppBranding.SettingsTitle);
+            AppDialog.Info($"已导出到：{dialog.FileName}", owner: this);
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"导出失败：{ex.Message}", AppBranding.SettingsTitle,
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Warning($"导出失败：{ex.Message}", owner: this);
         }
     }
 
@@ -434,11 +431,10 @@ public partial class SettingsWindow : Window
 
     private void OnClearHistory(object sender, RoutedEventArgs e)
     {
-        if (System.Windows.MessageBox.Show("确定清空本机全部翻译历史？", AppBranding.SettingsTitle,
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        if (!AppDialog.Confirm("确定清空本机全部翻译历史？", owner: this, icon: MessageBoxImage.Warning, dangerPrimary: true))
             return;
         _historyStore.Clear();
-        System.Windows.MessageBox.Show("历史记录已清空。", AppBranding.SettingsTitle);
+        AppDialog.Info("历史记录已清空。", owner: this);
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
@@ -485,8 +481,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"热键无效：{ex.Message}", AppBranding.SettingsTitle,
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Warning($"热键无效：{ex.Message}", owner: this);
             return;
         }
 
@@ -500,7 +495,7 @@ public partial class SettingsWindow : Window
         _configService.Save(_working);
         Saved?.Invoke(this, EventArgs.Empty);
 
-        SaveHintText.Text = "已保存";
+        SaveHintText.Text = "已保存，配置已生效";
         SaveHintText.Visibility = Visibility.Visible;
 
         if (CloseAfterSaveCheck.IsChecked == true)

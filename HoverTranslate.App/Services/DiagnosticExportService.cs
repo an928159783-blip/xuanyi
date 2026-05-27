@@ -1,7 +1,9 @@
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using HoverTranslate.App.Windows;
 using HoverTranslate.Core.Services;
+
 namespace HoverTranslate.App.Services;
 
 public static class DiagnosticExportService
@@ -22,14 +24,12 @@ public static class DiagnosticExportService
         try
         {
             ExportToZip(dialog.FileName);
-            System.Windows.MessageBox.Show($"已导出：{dialog.FileName}", AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            AppDialog.Info($"已导出：{dialog.FileName}", AppBranding.DisplayName);
             return true;
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"导出失败：{ex.Message}", AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            AppDialog.Warning($"导出失败：{ex.Message}", AppBranding.DisplayName);
             return false;
         }
     }

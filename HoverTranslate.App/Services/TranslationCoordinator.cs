@@ -164,6 +164,7 @@ public sealed class TranslationCoordinator
     {
         TranslationResultWindow.EnsureVisible();
         TranslationResultWindow.Instance.ShowError($"{title}：{ex.Message}");
-        System.Windows.MessageBox.Show(ex.ToString(), title, MessageBoxButton.OK, MessageBoxImage.Error);
+        var owner = TranslationResultWindow.IsPanelVisible ? TranslationResultWindow.Instance : null;
+        AppDialog.Error($"{title}：{ex.Message}\n\n{ex}", title, owner);
     }
 }

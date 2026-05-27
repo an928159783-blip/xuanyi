@@ -31,7 +31,7 @@ public sealed class AppConfig
     public bool ShowPanelOnStartup { get; set; }
     public bool ShowPanelOnTranslate { get; set; } = true;
     /// <summary>设置窗口点击保存后自动关闭</summary>
-    public bool CloseSettingsAfterSave { get; set; } = true;
+    public bool CloseSettingsAfterSave { get; set; }
     /// <summary>启动时显示「已启动」说明窗（托盘程序无主窗口）</summary>
     public bool ShowStartupNotice { get; set; } = true;
     public int OverlayTimeoutMs { get; set; }

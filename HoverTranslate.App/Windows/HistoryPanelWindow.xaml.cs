@@ -71,8 +71,7 @@ public partial class HistoryPanelWindow : System.Windows.Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"加载历史失败：{ex.Message}", AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            AppDialog.Warning($"加载历史失败：{ex.Message}", AppBranding.DisplayName, Instance);
         }
     }
 
@@ -139,9 +138,7 @@ public partial class HistoryPanelWindow : System.Windows.Window
 
     private void OnClearHistory(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (System.Windows.MessageBox.Show("确定清空全部历史记录？", AppBranding.DisplayName,
-                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question)
-            != System.Windows.MessageBoxResult.Yes)
+        if (!AppDialog.Confirm("确定清空全部历史记录？", AppBranding.DisplayName, this, dangerPrimary: true))
             return;
 
         var store = new HistoryStore();

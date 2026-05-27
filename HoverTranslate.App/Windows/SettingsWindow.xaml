@@ -307,7 +307,8 @@
                 <CheckBox x:Name="SanitizeCheck" Content="自动脱敏（掩码 token / 密钥 / 邮箱）"/>
                 <CheckBox x:Name="EnableHistoryCheck" Content="启用本地翻译历史（SQLite，仅存本机）"
                           Checked="OnHistoryToggleChanged" Unchecked="OnHistoryToggleChanged"/>
-                <CheckBox x:Name="CloseAfterSaveCheck" Content="保存后自动关闭设置窗口" Margin="0,12,0,0"/>
+                <CheckBox x:Name="CloseAfterSaveCheck" Content="保存后自动关闭设置窗口（不勾选则保持打开，配置仍会立即生效）"
+                          Margin="0,12,0,0"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource SectionBorder}">

@@ -25,19 +25,16 @@ public partial class App : System.Windows.Application
 
         if (!TryAcquireSingleInstance())
         {
-            System.Windows.MessageBox.Show(
+            AppDialog.Info(
                 "炫译已在运行。\n\n请查看任务栏右下角托盘区（点击 ^ 展开隐藏图标），右键托盘图标可打开设置或退出。\n\n本程序没有传统主窗口，启动后只在托盘显示。",
-                AppBranding.DisplayName,
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                AppBranding.DisplayName);
             Shutdown();
             return;
         }
 
         DispatcherUnhandledException += (_, args) =>
         {
-            System.Windows.MessageBox.Show(args.Exception.ToString(), $"{AppBranding.DisplayName} 错误",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Error(args.Exception.ToString(), $"{AppBranding.DisplayName} 错误");
             args.Handled = true;
         };
 
@@ -71,9 +68,7 @@ public partial class App : System.Windows.Application
             catch (Exception ex)
             {
                 StartupDiagnostics.LogException("Hotkey", ex);
-                System.Windows.MessageBox.Show(
-                    $"{ex.Message}\n将使用默认热键 {HotkeyParser.DefaultHotkey}。",
-                    AppBranding.DisplayName, MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Warning($"{ex.Message}\n将使用默认热键 {HotkeyParser.DefaultHotkey}。", AppBranding.DisplayName);
                 _hotkey.Register(HotkeyParser.DefaultHotkey);
             }
 
@@ -105,8 +100,7 @@ public partial class App : System.Windows.Application
                 catch (Exception ex)
                 {
                     StartupDiagnostics.LogException("PostStartupUi", ex);
-                    System.Windows.MessageBox.Show(ex.ToString(), $"{AppBranding.DisplayName} 启动界面失败",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    AppDialog.Error(ex.ToString(), $"{AppBranding.DisplayName} 启动界面失败");
                 }
             }, DispatcherPriority.ApplicationIdle);
 
@@ -119,11 +113,9 @@ public partial class App : System.Windows.Application
         catch (Exception ex)
         {
             StartupDiagnostics.LogException("OnStartup", ex);
-            System.Windows.MessageBox.Show(
+            AppDialog.Error(
                 $"启动失败：{ex.Message}\n\n详情已写入：\n{StartupDiagnostics.LogPath}\n\n{ex}",
-                AppBranding.DisplayName,
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                AppBranding.DisplayName);
             Shutdown();
         }
     }
@@ -232,8 +224,7 @@ public partial class App : System.Windows.Application
     });
 
     private static void ShowUiError(string title, Exception ex) =>
-        System.Windows.MessageBox.Show($"{title}：{ex.Message}\n\n{ex}", AppBranding.DisplayName,
-            MessageBoxButton.OK, MessageBoxImage.Warning);
+        AppDialog.Warning($"{title}：{ex.Message}\n\n{ex}", AppBranding.DisplayName);
 
     private void OnExit()
     {

@@ -7,6 +7,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Frost-style `AppDialog` replaces system MessageBox across settings, history, tray flows.
+- Settings save keeps window open by default; optional「保存后自动关闭」.
 - Unified auto zh↔en for selection, hotkey, copy, and hover; optional「选中后自动翻译」.
 - Clipboard-first capture and copy-to-translate passthrough; bidirectional zh/en (`translationDirection`).
 - Settings API data-residency notice; translation panel machine-translation disclaimer (P2).
