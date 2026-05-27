@@ -1,12 +1,22 @@
+# Publish latest build and refresh desktop shortcut (炫译.lnk -> publish\HoverTranslate.exe)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $pub = Join-Path $root "HoverTranslate.App\bin\Release\net8.0-windows\win-x64\publish"
 $exe = Join-Path $pub "HoverTranslate.exe"
 $ico = Join-Path $pub "xuanyi.ico"
 
+Write-Host "Publishing HoverTranslate (Release, win-x64)..."
+Push-Location $root
+try {
+    dotnet publish HoverTranslate.App\HoverTranslate.App.csproj -c Release -r win-x64 --self-contained false
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
+}
+finally {
+    Pop-Location
+}
+
 if (-not (Test-Path $exe)) {
-    Write-Host "Publish first."
-    exit 1
+    Write-Error "Publish succeeded but exe not found: $exe"
 }
 
 $desktop = [Environment]::GetFolderPath("Desktop")
@@ -17,7 +27,7 @@ Get-ChildItem $desktop -Filter "*.lnk" -ErrorAction SilentlyContinue | ForEach-O
         $s = $wsh.CreateShortcut($_.FullName)
         if ($s.TargetPath -like "*HoverTranslate.exe*") {
             Remove-Item $_.FullName -Force
-            Write-Host ("Removed: " + $_.Name)
+            Write-Host ("Removed old shortcut: " + $_.Name)
         }
     } catch { }
 }
@@ -27,7 +37,11 @@ $shortcutPath = Join-Path $desktop (([char]0x70AB).ToString() + ([char]0x8BD1).T
 $sc = $wsh.CreateShortcut($shortcutPath)
 $sc.TargetPath = $exe
 $sc.WorkingDirectory = $pub
-$sc.Description = "XuanYi"
+$sc.Description = 'XuanYi HoverTranslate (latest publish)'
 $sc.IconLocation = $iconPath
 $sc.Save()
-Write-Host ("Created: " + $shortcutPath)
+
+$ver = (Get-Item $exe).LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+Write-Host "Created: $shortcutPath"
+Write-Host "Target:  $exe"
+Write-Host "Built:   $ver"

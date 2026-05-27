@@ -1,0 +1,19 @@
+---
+description: After changing HoverTranslate app code, refresh publish and desktop shortcut
+globs:
+  - HoverTranslate.App/**
+  - HoverTranslate.Core/**
+alwaysApply: false
+---
+
+# 发布后更新桌面快捷方式
+
+用户通过桌面 **炫译.lnk** 启动测试。完成应用代码变更并验证构建后，在项目根目录执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\create-desktop-shortcut.ps1
+```
+
+该脚本会 `dotnet publish` 并刷新 `%USERPROFILE%\Desktop\炫译.lnk`，指向 `HoverTranslate.App\bin\Release\net8.0-windows\win-x64\publish\HoverTranslate.exe`。
+
+勿让快捷方式指向旧的 `bin\Release\net8.0-windows\`（非 publish）或其它副本。
