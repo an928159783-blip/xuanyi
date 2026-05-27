@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using HoverTranslate.Core.Http;
 using HoverTranslate.Core.Models;
+using HoverTranslate.Core.Services;
 
 namespace HoverTranslate.Core.Translators;
 
@@ -9,16 +10,18 @@ namespace HoverTranslate.Core.Translators;
 public sealed class MicrosoftTranslator : ITranslator
 {
     private readonly ApiProfile _profile;
+    private readonly AppConfig _config;
     private readonly HttpClient _http;
 
-    public MicrosoftTranslator(ApiProfile profile)
-        : this(profile, TranslationHttpClient.Instance)
+    public MicrosoftTranslator(ApiProfile profile, AppConfig config)
+        : this(profile, config, TranslationHttpClient.Instance)
     {
     }
 
-    internal MicrosoftTranslator(ApiProfile profile, HttpClient http)
+    internal MicrosoftTranslator(ApiProfile profile, AppConfig config, HttpClient http)
     {
         _profile = profile;
+        _config = config;
         _http = http;
     }
 
@@ -33,7 +36,8 @@ public sealed class MicrosoftTranslator : ITranslator
             ? "https://api.cognitive.microsofttranslator.com"
             : _profile.BaseUrl.TrimEnd('/');
 
-        var url = $"{endpoint}/translate?api-version=3.0&from=en&to=zh-Hans";
+        var (from, to) = TranslationDirectionResolver.ResolveApiPair(text, _config);
+        var url = $"{endpoint}/translate?api-version=3.0&from={from}&to={to}";
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Add("Ocp-Apim-Subscription-Key", _profile.ApiKey);
         if (!string.IsNullOrWhiteSpace(_profile.Region)

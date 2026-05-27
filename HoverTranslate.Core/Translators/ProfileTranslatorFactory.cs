@@ -10,8 +10,8 @@ public static class ProfileTranslatorFactory
         var kind = profile.Kind?.Trim().ToLowerInvariant() ?? ApiProfileKinds.OpenAiCompatible;
         return kind switch
         {
-            ApiProfileKinds.Microsoft => new MicrosoftTranslator(profile),
-            ApiProfileKinds.Google => new GoogleTranslator(profile),
+            ApiProfileKinds.Microsoft => new MicrosoftTranslator(profile, config),
+            ApiProfileKinds.Google => new GoogleTranslator(profile, config),
             _ => new GenericLlmTranslator(ProviderResolver.ToLlmConfig(profile), profile.Id, config, glossary)
         };
     }

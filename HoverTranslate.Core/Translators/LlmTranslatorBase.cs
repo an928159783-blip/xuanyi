@@ -51,7 +51,7 @@ public abstract class LlmTranslatorBase : ITranslator
         if (text.Length > _config.MaxCharsPerRequest)
             return TranslationResult.Fail(text, $"文本超过 {_config.MaxCharsPerRequest} 字符，请缩短后重试。");
 
-        var systemPrompt = BuildSystemPrompt();
+        var systemPrompt = BuildSystemPrompt(text);
         var url = $"{providerConfig.BaseUrl.TrimEnd('/')}/chat/completions";
 
         var payload = new
@@ -96,18 +96,10 @@ public abstract class LlmTranslatorBase : ITranslator
         }
     }
 
-    private string BuildSystemPrompt()
+    private string BuildSystemPrompt(string text)
     {
         var glossary = _glossary.BuildGlossaryPromptSection(_config.Glossary);
-        return $"""
-            你是界面文案翻译器。将用户给出的文本译为简体中文。
-            规则：
-            1. 只输出译文，不要引号、不要解释、不要 markdown。
-            2. 保留术语表中的英文产品名。
-            3. 若为代码块或 JSON，原样返回不翻译。
-
-            术语表：{glossary}
-            """;
+        return TranslationDirectionResolver.BuildLlmSystemPrompt(text, _config, glossary);
     }
 
     private static string ExtractAssistantContent(string json)

@@ -24,7 +24,8 @@ public class MicrosoftTranslatorIntegrationTests
             Region = "global"
         };
 
-        var translator = new MicrosoftTranslator(profile, mockHttp.ToHttpClient());
+        var config = new AppConfig();
+        var translator = new MicrosoftTranslator(profile, config, mockHttp.ToHttpClient());
         var result = await translator.TranslateAsync("Hello world");
 
         Assert.True(result.Success);
@@ -48,7 +49,8 @@ public class MicrosoftTranslatorIntegrationTests
             Region = "global"
         };
 
-        var translator = new MicrosoftTranslator(profile, mockHttp.ToHttpClient());
+        var config = new AppConfig();
+        var translator = new MicrosoftTranslator(profile, config, mockHttp.ToHttpClient());
         var result = await translator.TranslateAsync("Hello");
 
         Assert.False(result.Success);

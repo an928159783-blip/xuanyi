@@ -257,12 +257,30 @@
                 </StackPanel>
                 <TextBlock x:Name="HotkeyHintText" Style="{StaticResource SettingSmallHint}" Margin="0,0,0,16"/>
                 <CheckBox x:Name="TranslateOnCopyCheck" Content="复制后自动翻译"/>
+                <Grid Style="{StaticResource SettingFormRow}" Margin="0,12,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
+                    <TextBlock Text="翻译方向" Style="{StaticResource SettingToolbarLabel}"/>
+                  </Border>
+                  <ComboBox x:Name="TranslationDirectionCombo" Grid.Column="2" Width="220"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            DisplayMemberPath="Label" SelectedValuePath="Id"/>
+                </Grid>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,6,0,0"
+                           TextWrapping="Wrap"
+                           Text="自动：根据文本判断英译中或中译英；后续版本可扩展更多语言对。"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
                 <TextBlock Text="悬停翻译" Style="{StaticResource SettingSectionHeader}"/>
                 <CheckBox x:Name="EnableHoverCheck" Content="启用悬停翻译"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="悬停依赖系统无障碍接口读取鼠标下文字；部分软件（Electron、PDF、游戏）不支持，请用热键或「复制后自动翻译」。无法选中画面需等待 OCR 截屏功能。"/>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,8,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>

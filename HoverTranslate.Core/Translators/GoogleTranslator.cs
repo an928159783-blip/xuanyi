@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using HoverTranslate.Core.Http;
 using HoverTranslate.Core.Models;
+using HoverTranslate.Core.Services;
 
 namespace HoverTranslate.Core.Translators;
 
@@ -9,9 +10,14 @@ namespace HoverTranslate.Core.Translators;
 public sealed class GoogleTranslator : ITranslator
 {
     private readonly ApiProfile _profile;
+    private readonly AppConfig _config;
     private static HttpClient Http => TranslationHttpClient.Instance;
 
-    public GoogleTranslator(ApiProfile profile) => _profile = profile;
+    public GoogleTranslator(ApiProfile profile, AppConfig config)
+    {
+        _profile = profile;
+        _config = config;
+    }
 
     public string ProviderName => _profile.Name;
 
@@ -25,11 +31,12 @@ public sealed class GoogleTranslator : ITranslator
             : _profile.BaseUrl;
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        var (source, target) = TranslationDirectionResolver.ResolveGooglePair(text, _config);
         req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["q"] = text,
-            ["source"] = "en",
-            ["target"] = "zh-CN",
+            ["source"] = source,
+            ["target"] = target,
             ["format"] = "text"
         });
 

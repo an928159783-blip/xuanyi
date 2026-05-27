@@ -7,6 +7,8 @@ public sealed class AppConfig
     /// <summary>Auto 模式下参与轮询的 API Id（空=全部已配置项）</summary>
     public List<string> AutoProviderIds { get; set; } = new();
     public string Hotkey { get; set; } = "Ctrl+Shift+T";
+    /// <summary>auto | en-to-zh | zh-to-en（预留 extraLocalePairs 扩展更多语言对）</summary>
+    public string TranslationDirection { get; set; } = "auto";
     /// <summary>复制到剪贴板后自动翻译（选中后只需 Ctrl+C）</summary>
     public bool TranslateOnCopy { get; set; }
     public bool EnableHistory { get; set; } = true;

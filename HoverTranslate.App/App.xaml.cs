@@ -55,7 +55,7 @@ public partial class App : System.Windows.Application
             _tray = new TrayService(
                 _configService,
                 config,
-                OnTranslateRequested,
+                () => OnTranslateRequested(),
                 OnExit,
                 OnShowHistory,
                 OnShowTranslation,
@@ -128,7 +128,7 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void OnTranslateRequested()
+    private void OnTranslateRequested(string? knownText = null)
     {
         if (_coordinator is null) return;
 
@@ -136,14 +136,17 @@ public partial class App : System.Windows.Application
 
         Current.Dispatcher.BeginInvoke(() =>
         {
-            string? captured = null;
-            try
+            string? captured = knownText?.Trim();
+            if (string.IsNullOrWhiteSpace(captured))
             {
-                captured = _selectionCapture.GetTextForTranslation();
-            }
-            catch
-            {
-                // ignore
+                try
+                {
+                    captured = _selectionCapture.GetTextForTranslation();
+                }
+                catch
+                {
+                    // ignore
+                }
             }
 
             _ = _coordinator.TranslateFromSelectionOrClipboardAsync(captured);
@@ -166,7 +169,7 @@ public partial class App : System.Windows.Application
         if (!config.TranslateOnCopy || _configService is null) return;
 
         _clipboardTranslate = new ClipboardTranslateService();
-        _clipboardTranslate.Start(_configService, OnTranslateRequested);
+        _clipboardTranslate.Start(_configService, text => OnTranslateRequested(text));
     }
 
     private void OnOpenSettings() => Current.Dispatcher.Invoke(() =>

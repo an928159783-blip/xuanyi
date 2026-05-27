@@ -64,6 +64,9 @@ public sealed class TranslationCoordinator
         var config = _configService.Load();
         text = text?.Trim() ?? "";
 
+        if (string.IsNullOrEmpty(text))
+            text = _selection.GetClipboardText()?.Trim() ?? "";
+
         if (!ConfigService.HasApiKey(config))
         {
             if (!fromHover)
@@ -79,9 +82,14 @@ public sealed class TranslationCoordinator
         if (string.IsNullOrEmpty(text))
         {
             if (!fromHover)
+            {
+                var hk = string.IsNullOrWhiteSpace(config.Hotkey)
+                    ? HotkeyParser.DefaultHotkey
+                    : config.Hotkey;
                 ShowMessage(
-                    "未读到文字。请先选中文字并保持选中，再按 Ctrl+Shift+T；或先 Ctrl+C 复制，再按热键。",
+                    $"未读到文字。\n\n请尝试：\n1. 选中英文后先按 Ctrl+C，再按 {hk}\n2. 或保持选中不松手，直接按 {hk}\n\n部分 PDF/阅读器不支持自动取词，将依赖剪贴板。",
                     forceShowTranslation);
+            }
             return;
         }
 

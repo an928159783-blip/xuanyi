@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using HoverTranslate.Core.Services;
 
 namespace HoverTranslate.App.Services;
 
@@ -6,21 +7,33 @@ public sealed class SelectionCaptureService
 {
     private readonly ClipboardService _clipboard = new();
 
-    /// <summary>热键翻译：优先完整选区（须在 STA/UI 线程调用）。</summary>
+    /// <summary>热键翻译：优先完整选区与剪贴板（须在 STA/UI 线程调用）。</summary>
     public string? GetTextForTranslation()
     {
-        // 热键按下瞬间先读选区，避免松键后选区被折叠成单词
+        // 热键按下瞬间先读选区，避免松键后选区被折叠
         var earlyUia = UiAutomationSelectionCapture.TryGetSelectedText();
         if (IsUsefulText(earlyUia))
             return earlyUia!.Trim();
 
+        // 在清空剪贴板或模拟复制之前，保留用户已 Ctrl+C 的内容
+        var clipBeforeHotkey = _clipboard.TryGetText();
+
         PrepareAfterHotkey();
 
         var fromUia = UiAutomationSelectionCapture.TryGetSelectedText();
-        var fromCopy = TryCaptureSelectionViaCopy();
-        var clip = _clipboard.TryGetText();
+        if (IsUsefulText(fromUia))
+            return fromUia!.Trim();
 
-        return PickLongestUseful(earlyUia, fromUia, fromCopy, clip);
+        if (IsUsefulTranslatableText(clipBeforeHotkey))
+            return clipBeforeHotkey!.Trim();
+
+        string? fromCopy = null;
+        if (!IsUsefulTranslatableText(clipBeforeHotkey))
+            fromCopy = TryCaptureSelectionViaCopy();
+
+        var clipAfter = _clipboard.TryGetText();
+
+        return PickLongestUseful(earlyUia, fromUia, fromCopy, clipBeforeHotkey, clipAfter);
     }
 
     public string? CaptureSelectedText() => TryCaptureSelectionViaCopy();
@@ -63,6 +76,9 @@ public sealed class SelectionCaptureService
 
     private string? TryCopyClearAndCtrlC()
     {
+        if (IsUsefulTranslatableText(_clipboard.TryGetText()))
+            return _clipboard.TryGetText();
+
         using var backup = _clipboard.BackupClipboard();
         _clipboard.Clear();
         Thread.Sleep(40);
@@ -83,6 +99,9 @@ public sealed class SelectionCaptureService
 
     private string? TryCopyMessage(IntPtr hwnd)
     {
+        if (IsUsefulTranslatableText(_clipboard.TryGetText()))
+            return _clipboard.TryGetText();
+
         using var backup = _clipboard.BackupClipboard();
         _clipboard.Clear();
         Thread.Sleep(40);
@@ -103,6 +122,15 @@ public sealed class SelectionCaptureService
 
     private static bool IsUsefulText(string? text) =>
         !string.IsNullOrWhiteSpace(text) && text.Trim().Length >= 1;
+
+    private static bool IsUsefulTranslatableText(string? text)
+    {
+        if (!IsUsefulText(text)) return false;
+        var t = text!.Trim();
+        if (t.Length < 2) return false;
+        var letters = t.Count(char.IsLetter);
+        return letters >= 2;
+    }
 
     private static void ReleaseHotkeyKeys()
     {

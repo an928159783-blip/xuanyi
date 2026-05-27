@@ -26,6 +26,13 @@ public partial class SettingsWindow : Window
         new("slate", "石板灰")
     ];
 
+    private static readonly DirectionOption[] TranslationDirectionItems =
+    [
+        new(TranslationDirectionResolver.ModeAuto, "自动（英↔中）"),
+        new(TranslationDirectionResolver.ModeEnToZh, "英文 → 中文"),
+        new(TranslationDirectionResolver.ModeZhToEn, "中文 → 英文")
+    ];
+
     private bool _uiReady;
     private bool _suppressTranslationOpacity;
     private bool _suppressHistoryOpacity;
@@ -39,6 +46,7 @@ public partial class SettingsWindow : Window
 
         TranslationThemeCombo.ItemsSource = ThemeItems;
         HistoryThemeCombo.ItemsSource = ThemeItems;
+        TranslationDirectionCombo.ItemsSource = TranslationDirectionItems;
         AddTemplateCombo.ItemsSource = ApiProfileKinds.Templates
             .Select(t => new TemplateItem(t.Kind, t.Label)).ToList();
         AddTemplateCombo.SelectedIndex = 0;
@@ -107,6 +115,7 @@ public partial class SettingsWindow : Window
         CloseAfterSaveCheck.IsChecked = _working.CloseSettingsAfterSave;
         HotkeyBox.Text = string.IsNullOrWhiteSpace(_working.Hotkey) ? HotkeyParser.DefaultHotkey : _working.Hotkey;
         TranslateOnCopyCheck.IsChecked = _working.TranslateOnCopy;
+        SelectTranslationDirection(_working.TranslationDirection);
         OverlayTimeoutBox.Text = (_working.OverlayTimeoutMs / 1000).ToString();
         UpdateHistoryStatusUi();
         UpdateKindHint();
@@ -456,6 +465,8 @@ public partial class SettingsWindow : Window
         _working.EnableHistory = EnableHistoryCheck.IsChecked == true;
         _working.CloseSettingsAfterSave = CloseAfterSaveCheck.IsChecked == true;
         _working.TranslateOnCopy = TranslateOnCopyCheck.IsChecked == true;
+        if (TranslationDirectionCombo.SelectedValue is string dir)
+            _working.TranslationDirection = dir;
 
         if (int.TryParse(OverlayTimeoutBox.Text.Trim(), out var sec) && sec >= 0)
             _working.OverlayTimeoutMs = sec * 1000;
@@ -522,7 +533,19 @@ public partial class SettingsWindow : Window
     private void OnResetHotkey(object sender, RoutedEventArgs e) =>
         HotkeyBox.Text = HotkeyParser.DefaultHotkey;
 
+    private void SelectTranslationDirection(string? id)
+    {
+        var key = string.IsNullOrWhiteSpace(id)
+            ? TranslationDirectionResolver.ModeAuto
+            : id.Trim();
+        TranslationDirectionCombo.SelectedValue = TranslationDirectionItems
+            .Any(i => i.Id == key)
+            ? key
+            : TranslationDirectionResolver.ModeAuto;
+    }
+
     private sealed record ThemeOption(string Id, string Label);
+    private sealed record DirectionOption(string Id, string Label);
     private sealed record ProviderItem(string Id, string Label);
     private sealed record TemplateItem(string Kind, string Label);
 }

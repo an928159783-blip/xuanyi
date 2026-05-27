@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Clipboard-first capture and copy-to-translate passthrough; bidirectional zh/en (`translationDirection`).
 - Settings API data-residency notice; translation panel machine-translation disclaimer (P2).
 - Privacy policy, terms, compliance/distribution docs; settings & tray links for legal docs and update check (P3).
 - Floating panel close button on translation and history windows.

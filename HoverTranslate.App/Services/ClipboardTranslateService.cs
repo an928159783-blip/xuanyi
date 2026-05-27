@@ -12,7 +12,7 @@ public sealed class ClipboardTranslateService : IDisposable
 
     private HwndSource? _hwndSource;
     private ConfigService? _configService;
-    private Action? _onTranslate;
+    private Action<string>? _onTranslate;
     private string? _lastTriggered;
     private DateTime _lastAt = DateTime.MinValue;
     private DateTime _pausedUntil = DateTime.MinValue;
@@ -20,7 +20,7 @@ public sealed class ClipboardTranslateService : IDisposable
     public void PauseFor(int milliseconds) =>
         _pausedUntil = DateTime.UtcNow.AddMilliseconds(milliseconds);
 
-    public void Start(ConfigService configService, Action onTranslate)
+    public void Start(ConfigService configService, Action<string> onTranslate)
     {
         _configService = configService;
         _onTranslate = onTranslate;
@@ -75,7 +75,7 @@ public sealed class ClipboardTranslateService : IDisposable
 
             _lastTriggered = text;
             _lastAt = now;
-            _onTranslate?.Invoke();
+            _onTranslate?.Invoke(text);
         }
         catch
         {
