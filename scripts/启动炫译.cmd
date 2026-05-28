@@ -1,5 +1,4 @@
 @echo off
-taskkill /IM HoverTranslate.exe /F >nul 2>&1
 set "ROOT=%~dp0.."
 cd /d "%ROOT%"
 echo Publishing and updating desktop shortcut...
@@ -9,7 +8,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-set "EXE=%ROOT%\HoverTranslate.App\bin\Release\net8.0-windows\win-x64\publish\HoverTranslate.exe"
+for /f "delims=" %%P in ('powershell -NoProfile -Command "$d=Get-ChildItem '%ROOT%\HoverTranslate.App\bin\Release' -Recurse -Filter publish -ErrorAction SilentlyContinue ^| Where-Object { Test-Path (Join-Path $_.FullName 'HoverTranslate.exe') } ^| Sort-Object { (Get-Item (Join-Path $_.FullName 'HoverTranslate.exe')).LastWriteTime } -Descending ^| Select-Object -First 1 -ExpandProperty FullName; Write-Output $d"') do set "PUB=%%P"
+set "EXE=%PUB%\HoverTranslate.exe"
 start "" "%EXE%"
-echo Started. Desktop 炫译.lnk points to latest publish. Check tray.
+echo Started. Desktop shortcut points to: %EXE%
 pause

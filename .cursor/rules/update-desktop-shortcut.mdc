@@ -8,12 +8,33 @@ alwaysApply: false
 
 # 发布后更新桌面快捷方式
 
-用户通过桌面 **炫译.lnk** 启动测试。完成应用代码变更并验证构建后，在项目根目录执行：
+用户通过桌面 **炫译.lnk** 启动测试。
+
+## 重要：不会“改代码就自动生效”
+
+- **保存源码 ≠ 更新桌面快捷方式**。必须完成 **publish** 并刷新 `.lnk`。
+- 仅 `dotnet build` 不会更新 `publish\HoverTranslate.exe`，桌面图标仍可能指向旧文件。
+- **炫译若在托盘运行**，publish 会失败（exe 被占用）；脚本会先结束进程，或请用户托盘退出后再发布。
+
+## 推荐命令（项目根目录）
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\create-desktop-shortcut.ps1
 ```
 
-该脚本会 `dotnet publish` 并刷新 `%USERPROFILE%\Desktop\炫译.lnk`，指向 `HoverTranslate.App\bin\Release\net8.0-windows\win-x64\publish\HoverTranslate.exe`。
+或双击 `scripts\启动炫译.cmd`（结束旧进程 → 发布 → 刷新快捷方式 → 启动）。
 
-勿让快捷方式指向旧的 `bin\Release\net8.0-windows\`（非 publish）或其它副本。
+## 自动刷新（已接入 MSBuild）
+
+执行 **`dotnet publish`**（带 `-r win-x64`）成功后，会自动运行快捷方式脚本（`-SkipPublish`，避免重复发布）。
+
+正确输出目录示例：
+
+`HoverTranslate.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\HoverTranslate.exe`
+
+**勿**指向已废弃的 `net8.0-windows\win-x64\publish`。
+
+## 用户仍看到旧版时
+
+1. 托盘 **退出炫译** 后再双击桌面快捷方式（单实例会沿用旧进程）。
+2. 查看 `publish\build-stamp.txt` 与快捷方式属性里的“注释”是否含最新构建时间。

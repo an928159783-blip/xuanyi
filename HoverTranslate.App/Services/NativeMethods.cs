@@ -5,6 +5,8 @@ namespace HoverTranslate.App.Services;
 internal static class NativeMethods
 {
     public const int HotkeyId = 0x4854;
+    public const int HotkeyIdTranslate = 0x4854;
+    public const int HotkeyIdScreenshot = 0x4855;
     public const uint ModControl = 0x0002;
     public const uint ModShift = 0x0004;
     public const uint VkT = 0x54;

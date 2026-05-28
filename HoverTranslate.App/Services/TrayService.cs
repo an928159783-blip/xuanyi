@@ -11,30 +11,28 @@ public sealed class TrayService : IDisposable
     private readonly NotifyIcon _icon;
     private readonly ConfigService _configService;
     private AppConfig _config;
-    private readonly Action _onTranslate;
     private readonly Action _onExit;
     private readonly Action _onShowHistory;
     private readonly Action _onShowTranslation;
     private readonly Action _onOpenSettings;
+    private readonly Action _onScreenshotRegion;
 
     public TrayService(
         ConfigService configService,
         AppConfig config,
-        Action onTranslate,
         Action onExit,
         Action onShowHistory,
         Action onShowTranslation,
         Action onOpenSettings,
-        Action<bool> onHoverSettingChanged)
+        Action onScreenshotRegion)
     {
         _configService = configService;
         _config = config;
-        _onTranslate = onTranslate;
         _onExit = onExit;
         _onShowHistory = onShowHistory;
         _onShowTranslation = onShowTranslation;
         _onOpenSettings = onOpenSettings;
-        _ = onHoverSettingChanged;
+        _onScreenshotRegion = onScreenshotRegion;
 
         try
         {
@@ -80,17 +78,11 @@ public sealed class TrayService : IDisposable
             }
         };
 
-        var hk = string.IsNullOrWhiteSpace(_config.Hotkey) ? HotkeyParser.DefaultHotkey : _config.Hotkey;
-
-        var translate = new ToolStripMenuItem($"翻译选中  {hk}")
+        var translationWin = new ToolStripMenuItem("打开译文窗")
         {
             TextAlign = ContentAlignment.MiddleCenter,
-            ToolTipText = "先拖选一段英文，再按此热键（会自动读取选中，不必先复制）"
+            ToolTipText = "手动打开译文窗；翻译热键、历史与检查更新等请在「设置」中配置"
         };
-        translate.Click += (_, _) => _onTranslate();
-        menu.Items.Add(translate);
-
-        var translationWin = new ToolStripMenuItem("打开译文窗");
         translationWin.Click += (_, _) => _onShowTranslation();
         menu.Items.Add(translationWin);
 
@@ -98,32 +90,23 @@ public sealed class TrayService : IDisposable
         historyWin.Click += (_, _) => _onShowHistory();
         menu.Items.Add(historyWin);
 
-        var historyItem = new ToolStripMenuItem(_config.EnableHistory ? "历史写入：开" : "历史写入：关")
+        var shotHk = _config.EnableScreenshotRegionHotkey
+            ? (string.IsNullOrWhiteSpace(_config.ScreenshotRegionHotkey) ? "Ctrl+Shift+S" : _config.ScreenshotRegionHotkey.Trim())
+            : null;
+        var screenshot = new ToolStripMenuItem(shotHk is null ? "框选截屏翻译" : $"框选截屏翻译  {shotHk}")
         {
-            ToolTipText = "点击切换是否保存翻译历史"
+            ToolTipText = shotHk is null
+                ? "可在设置 → 热键与悬停 → 截屏翻译中配置"
+                : $"拖选屏幕区域 OCR 后翻译；热键 {shotHk}"
         };
-        historyItem.Click += (_, _) => ToggleHistorySave();
-        menu.Items.Add(historyItem);
+        screenshot.Click += (_, _) => _onScreenshotRegion();
+        menu.Items.Add(screenshot);
 
         menu.Items.Add(new ToolStripSeparator());
 
         var settings = new ToolStripMenuItem("设置") { TextAlign = ContentAlignment.MiddleCenter };
         settings.Click += (_, _) => _onOpenSettings();
         menu.Items.Add(settings);
-
-        var checkUpdate = new ToolStripMenuItem("检查更新")
-        {
-            ToolTipText = $"当前版本 {UpdateCheckService.CurrentVersion}"
-        };
-        checkUpdate.Click += (_, _) => _ = UpdateCheckService.CheckAndNotifyAsync(null);
-        menu.Items.Add(checkUpdate);
-
-        var exportDiag = new ToolStripMenuItem("导出诊断包")
-        {
-            ToolTipText = "导出日志与脱敏配置（不含 API Key）"
-        };
-        exportDiag.Click += (_, _) => DiagnosticExportService.ExportWithPrompt();
-        menu.Items.Add(exportDiag);
 
         menu.Items.Add(new ToolStripSeparator());
 
@@ -136,14 +119,6 @@ public sealed class TrayService : IDisposable
 
     public void ShowBalloon(string title, string message) =>
         _icon.ShowBalloonTip(3000, title, message, ToolTipIcon.Info);
-
-    private void ToggleHistorySave()
-    {
-        _configService.SaveMerged(c => c.EnableHistory = !c.EnableHistory);
-        RefreshConfig();
-        ShowBalloon(AppBranding.DisplayName,
-            _config.EnableHistory ? "已开启：翻译将写入历史" : "已关闭：不再保存历史");
-    }
 
     public void Dispose()
     {

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 using HoverTranslate.Core.Services;
 
 namespace HoverTranslate.App.Services;
@@ -12,7 +13,8 @@ public static class UiAutomationTextCapture
         {
             var point = new System.Windows.Point(x, y);
             var element = AutomationElement.FromPoint(point);
-            if (element == null) return null;
+            if (element == null || UiAutomationAppScope.IsFromThisProcess(element))
+                return null;
 
             var fromRange = TryGetTextFromRangeAtPoint(element, point);
             if (!string.IsNullOrWhiteSpace(fromRange))
@@ -39,21 +41,21 @@ public static class UiAutomationTextCapture
                 var range = textPattern.RangeFromPoint(point);
                 if (range == null) continue;
 
-                var word = range.Clone();
-                word.ExpandToEnclosingUnit(System.Windows.Automation.Text.TextUnit.Word);
-                var wordText = word.GetText(-1)?.Trim() ?? "";
+                // 优先段落/整行，避免连续英文只译光标下的单词
+                var paragraphText = ExpandRangeText(range, TextUnit.Paragraph);
+                if (TryPickHoverText(paragraphText, out var fromParagraph))
+                    return fromParagraph;
+
+                var lineText = ExpandRangeText(range, TextUnit.Line);
+                if (TryPickHoverText(lineText, out var fromLine))
+                    return fromLine;
+
+                var wordText = ExpandRangeText(range, TextUnit.Word);
                 if (TextHeuristics.IsEnglishSnippet(wordText))
                     return wordText;
 
-                var line = range.Clone();
-                line.ExpandToEnclosingUnit(System.Windows.Automation.Text.TextUnit.Line);
-                var lineText = line.GetText(-1)?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(lineText)) continue;
-
-                if (TextHeuristics.ShouldTranslateOnHover(lineText))
-                    return lineText;
-
-                return TextHeuristics.ResolveHoverTarget(lineText);
+                if (TryPickHoverText(lineText, out var fallback))
+                    return fallback;
             }
             catch
             {
@@ -62,6 +64,40 @@ public static class UiAutomationTextCapture
         }
 
         return null;
+    }
+
+    private static string ExpandRangeText(TextPatternRange range, TextUnit unit)
+    {
+        var chunk = range.Clone();
+        chunk.ExpandToEnclosingUnit(unit);
+        return chunk.GetText(-1)?.Trim() ?? "";
+    }
+
+    private static bool TryPickHoverText(string? text, out string result)
+    {
+        result = "";
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        text = text.Trim();
+        if (text.Length > 1200)
+            text = text[..1200];
+
+        if (TextHeuristics.ShouldTranslateOnHover(text))
+        {
+            result = text;
+            return true;
+        }
+
+        var resolved = TextHeuristics.ResolveHoverTarget(text);
+        if (string.IsNullOrWhiteSpace(resolved)) return false;
+
+        // 避免从整段里只抠出一两个词
+        if (resolved.Length < 3) return false;
+        if (text.Length >= 12 && resolved.Length < Math.Min(12, text.Length / 4))
+            return false;
+
+        result = resolved;
+        return true;
     }
 
     private static string? TryGetTextFromElementTree(AutomationElement element)

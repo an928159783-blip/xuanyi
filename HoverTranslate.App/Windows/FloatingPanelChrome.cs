@@ -8,16 +8,13 @@ namespace HoverTranslate.App.Windows;
 internal static class FloatingPanelChrome
 {
     public static void ApplyAppearance(Window window, Border root, PanelChromeOptions options,
-        TextBlock? primaryText = null, TextBlock? secondaryText = null)
+        System.Windows.Controls.TextBox? primaryText = null, System.Windows.Controls.TextBox? secondaryText = null)
     {
         PanelAppearance.ApplyPanel(window, root, options, options.Theme);
         if (primaryText is not null)
-        {
-            var colors = PanelAppearance.GetTheme(options.Theme);
-            primaryText.Foreground = new SolidColorBrush(colors.Text);
-            if (secondaryText is not null)
-                secondaryText.Foreground = new SolidColorBrush(colors.SubText);
-        }
+            FloatingPanelText.ApplyReadOnlyBox(primaryText, options, primary: true);
+        if (secondaryText is not null)
+            FloatingPanelText.ApplyReadOnlyBox(secondaryText, options, primary: false);
     }
 
     public static void ApplyTitleBarButton(System.Windows.Controls.Button button, ChromeIconKind kind, string toolTip)

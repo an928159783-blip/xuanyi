@@ -93,9 +93,15 @@ public sealed class TranslationCoordinator
             return;
         }
 
-        var showTranslation = forceShowTranslation
-            || config.ShowPanelOnTranslate
-            || TranslationResultWindow.IsPanelVisible;
+        var panelAlreadyOpen = TranslationResultWindow.IsPanelVisible;
+        var showPanelOnHover = config.ShowPanelOnHover
+            && !TranslationResultWindow.SuppressAutoShowUntilManualOpen;
+        var showTranslation = panelAlreadyOpen
+            || (fromHover ? showPanelOnHover : forceShowTranslation || config.ShowPanelOnTranslate);
+
+        // 译文窗已关且不会自动弹出时：不执行悬停翻译（避免仅开着历史窗时仍后台译并写入历史）。
+        if (fromHover && !panelAlreadyOpen && !showPanelOnHover)
+            return;
 
         if (showTranslation)
         {
@@ -104,8 +110,12 @@ public sealed class TranslationCoordinator
         }
 
         TranslationResult result;
+        var hoverFromCache = false;
         if (fromHover)
         {
+            if (text.Length > config.MaxCharsPerRequest)
+                return;
+
             var guardOptions = HoverProtectionOptions.FromConfig(config);
             var guarded = await _hoverProtection
                 .TranslateAsync(text, guardOptions, ct => _orchestrator.TranslateAsync(text, config, fromHover: true, ct))
@@ -117,6 +127,7 @@ public sealed class TranslationCoordinator
             if (guarded.Result is null)
                 return;
 
+            hoverFromCache = guarded.FromCache;
             result = guarded.Result;
         }
         else
@@ -126,12 +137,17 @@ public sealed class TranslationCoordinator
 
         if (result.Success)
         {
-            if (config.EnableHistory)
+            var historyAdded = false;
+            var recordHistory = config.EnableHistory
+                && !(fromHover && hoverFromCache)
+                && (!fromHover || TranslationResultWindow.IsPanelVisible || showPanelOnHover);
+            if (recordHistory)
             {
                 try
                 {
                     _history ??= new HistoryStore();
-                    _history.Add(result.SourceText, result.TranslatedText, result.Provider);
+                    historyAdded = _history.TryAdd(
+                        result.SourceText, result.TranslatedText, result.Provider);
                 }
                 catch (Exception ex)
                 {
@@ -144,7 +160,7 @@ public sealed class TranslationCoordinator
                 TranslationResultWindow.Instance.ShowCurrent(
                     result.SourceText, result.TranslatedText, result.Provider);
 
-            if (HistoryPanelWindow.IsPanelVisible && config.EnableHistory && _history != null)
+            if (historyAdded && HistoryPanelWindow.IsPanelVisible && config.EnableHistory && _history != null)
                 HistoryPanelWindow.Instance.ReloadHistory(_history);
         }
         else if (showTranslation)

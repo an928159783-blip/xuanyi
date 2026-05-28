@@ -10,6 +10,7 @@
         Background="Transparent"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
+        Topmost="True"
         WindowStartupLocation="CenterOwner"
         FontFamily="Microsoft YaHei UI, Microsoft YaHei, Segoe UI"
         FontSize="14"
@@ -37,8 +38,8 @@
         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <Border Grid.Row="0" Background="#F7F8FA" BorderBrush="#E8EDF5" BorderThickness="0,0,0,1"
-              CornerRadius="12,12,0,0" Padding="20,14">
+      <Border x:Name="DragHeader" Grid.Row="0" Background="#F7F8FA" BorderBrush="#E8EDF5" BorderThickness="0,0,0,1"
+              CornerRadius="12,12,0,0" Padding="20,14" Cursor="SizeAll">
         <DockPanel LastChildFill="True">
           <Border x:Name="IconHost" Width="36" Height="36" CornerRadius="18" Margin="0,0,12,0"
                   VerticalAlignment="Center" DockPanel.Dock="Left">

@@ -8,17 +8,30 @@ using WpfColor = System.Windows.Media.Color;
 
 namespace HoverTranslate.App.Windows;
 
+public enum AppDialogKind
+{
+    Default,
+    ImportHistory
+}
+
 public partial class AppDialogWindow : Window
 {
     public MessageBoxResult Result { get; private set; } = MessageBoxResult.None;
 
-    public AppDialogWindow(string message, string title, MessageBoxButton buttons, MessageBoxImage icon, bool dangerPrimary = false)
+    public AppDialogWindow(
+        string message,
+        string title,
+        MessageBoxButton buttons,
+        MessageBoxImage icon,
+        bool dangerPrimary = false,
+        AppDialogKind kind = AppDialogKind.Default)
     {
         InitializeComponent();
         TitleText.Text = title;
         MessageText.Text = message;
         ApplyIcon(icon);
-        BuildButtons(buttons, dangerPrimary);
+        BuildButtons(buttons, dangerPrimary, kind);
+        DragHeader.MouseLeftButtonDown += OnDragHeaderMouseDown;
         Loaded += (_, _) =>
         {
             var primary = ButtonPanel.Children.OfType<WpfButton>().LastOrDefault();
@@ -29,10 +42,20 @@ public partial class AppDialogWindow : Window
             if (e.Key == Key.Escape)
             {
                 Result = MessageBoxResult.Cancel;
-                DialogResult = false;
                 Close();
             }
         };
+    }
+
+    private void OnDragHeaderMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount > 1)
+            return;
+        if (e.LeftButton == MouseButtonState.Pressed)
+        {
+            try { DragMove(); }
+            catch { /* ignore */ }
+        }
     }
 
     private void ApplyIcon(MessageBoxImage icon)
@@ -65,8 +88,16 @@ public partial class AppDialogWindow : Window
         }
     }
 
-    private void BuildButtons(MessageBoxButton buttons, bool dangerPrimary)
+    private void BuildButtons(MessageBoxButton buttons, bool dangerPrimary, AppDialogKind kind)
     {
+        if (kind == AppDialogKind.ImportHistory)
+        {
+            AddButton("取消", MessageBoxResult.Cancel, isPrimary: false);
+            AddButton("清空后导入", MessageBoxResult.No, isPrimary: false);
+            AddButton("追加", MessageBoxResult.Yes, isPrimary: true);
+            return;
+        }
+
         switch (buttons)
         {
             case MessageBoxButton.YesNo:
@@ -100,7 +131,6 @@ public partial class AppDialogWindow : Window
         btn.Click += (_, _) =>
         {
             Result = result;
-            DialogResult = result is MessageBoxResult.OK or MessageBoxResult.Yes;
             Close();
         };
         ButtonPanel.Children.Add(btn);

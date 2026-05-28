@@ -6,7 +6,7 @@
         MinWidth="260" MinHeight="160"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent"
+        Background="#01000000"
         Topmost="True"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
@@ -83,6 +83,9 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="HistoryCountText" Grid.Column="0" FontSize="10" VerticalAlignment="Center"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <Button x:Name="CopyHistoryButton" Content="复制" Margin="0,0,8,0" Padding="8,3" FontSize="11"
+                  Click="OnCopySelected" ToolTip="选中一条时复制该条；未选中时复制全部记录到剪贴板"/>
+          <Button Content="导入" Margin="0,0,8,0" Padding="8,3" FontSize="11" Click="OnImportHistory"/>
           <Button x:Name="OpenInTranslationButton" Content="打开" Margin="0,0,8,0" Padding="8,3" FontSize="11"
                   Click="OnOpenInTranslation"/>
           <Button Content="清空历史" Padding="8,3" FontSize="11" Click="OnClearHistory"/>

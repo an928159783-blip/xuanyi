@@ -19,6 +19,8 @@ public sealed class HoverTranslateService : IDisposable
     private int _selectionStillMs;
     private string? _lastSelectionTranslated;
 
+    private string? _lastHoverTranslated;
+
     private bool _busy;
     private DateTime _pausedUntil = DateTime.MinValue;
 
@@ -61,6 +63,17 @@ public sealed class HoverTranslateService : IDisposable
 
         var config = _configService.Load();
         if (IsLeftButtonDown()) return;
+
+        // 仅当光标在炫译自有浮窗上时暂停；勿因译文/历史窗「已打开」就全局禁用悬停。
+        if (AppWindowHoverGuard.ShouldSuppressHoverCapture())
+        {
+            _stableSelection = null;
+            _selectionStillMs = 0;
+            _stableText = null;
+            _textStillMs = 0;
+            _lastHoverTranslated = null;
+            return;
+        }
 
         if (config.TranslateOnSelection && TryTickSelectionTranslate(config))
             return;
@@ -139,6 +152,13 @@ public sealed class HoverTranslateService : IDisposable
         var debounceMs = HoverProtectionOptions.FromConfig(config).EffectiveDebounceMs(config);
         if (_textStillMs < debounceMs) return;
 
+        if (string.Equals(text, _lastHoverTranslated, StringComparison.Ordinal))
+            return;
+
+        if (text.Length > config.MaxCharsPerRequest)
+            return;
+
+        _lastHoverTranslated = text;
         _busy = true;
         _ = RunHoverTranslateAsync(text);
     }

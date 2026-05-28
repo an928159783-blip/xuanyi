@@ -71,9 +71,13 @@ public sealed class ConfigService
 
         config.TranslationPanelUi.Opacity = ClampPanelOpacity(config.TranslationPanelUi.Opacity);
         config.HistoryPanelUi.Opacity = ClampPanelOpacity(config.HistoryPanelUi.Opacity);
+        config.TranslationPanelUi.FontSizeScale = ClampFontSizeScale(config.TranslationPanelUi.FontSizeScale);
+        config.HistoryPanelUi.FontSizeScale = ClampFontSizeScale(config.HistoryPanelUi.FontSizeScale);
     }
 
     private static double ClampPanelOpacity(double value) => Math.Clamp(value, 0.0, 1.0);
+
+    public static double ClampFontSizeScale(double value) => Math.Clamp(value, 0.85, 1.35);
 
     private static AppConfig LoadLegacyConfig(string json)
     {

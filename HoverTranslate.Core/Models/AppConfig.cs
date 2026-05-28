@@ -9,6 +9,11 @@ public sealed class AppConfig
     public string Hotkey { get; set; } = "Ctrl+Shift+T";
     /// <summary>auto | en-to-zh | zh-to-en（预留 extraLocalePairs 扩展更多语言对）</summary>
     public string TranslationDirection { get; set; } = "auto";
+    /// <summary>框选截屏翻译热键（默认 Ctrl+Shift+S）</summary>
+    public string ScreenshotRegionHotkey { get; set; } = "Ctrl+Shift+S";
+    public bool EnableScreenshotRegionHotkey { get; set; } = true;
+    /// <summary>固定截屏区域（后续热键翻译）；坐标为屏幕物理像素</summary>
+    public List<ScreenshotRegion> ScreenshotRegions { get; set; } = new();
     /// <summary>复制到剪贴板后自动翻译（选中后只需 Ctrl+C）</summary>
     public bool TranslateOnCopy { get; set; }
     /// <summary>存在选区时自动翻译（无需按热键），方向同 TranslationDirection</summary>
@@ -29,7 +34,14 @@ public sealed class AppConfig
     public int HoverBackoffMaxMs { get; set; } = 60_000;
     public bool UseHistoryPanel { get; set; } = true;
     public bool ShowPanelOnStartup { get; set; }
+    /// <summary>热键 / 复制 / 选中翻译时在译文窗显示结果</summary>
     public bool ShowPanelOnTranslate { get; set; } = true;
+    /// <summary>悬停翻译时在译文窗显示结果（默认关闭，避免关窗后又被悬停拉起）</summary>
+    public bool ShowPanelOnHover { get; set; }
+    /// <summary>用户手动关闭译文窗后，不再因悬停/自动翻译弹出，直至再次手动打开译文窗</summary>
+    public bool SuppressPanelAfterUserClose { get; set; } = true;
+    /// <summary>从设置发起框选截屏前自动隐藏设置窗口</summary>
+    public bool HideSettingsForScreenshotPick { get; set; } = true;
     /// <summary>设置窗口点击保存后自动关闭</summary>
     public bool CloseSettingsAfterSave { get; set; }
     /// <summary>启动时显示「已启动」说明窗（托盘程序无主窗口）</summary>
@@ -77,6 +89,16 @@ public sealed class ApiProfile
     public bool Enabled { get; set; } = true;
 }
 
+public sealed class ScreenshotRegion
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+}
+
 public sealed class PanelPlacement
 {
     public double? Left { get; set; }
@@ -89,7 +111,11 @@ public sealed class PanelPlacement
 public sealed class PanelChromeOptions
 {
     public double Opacity { get; set; } = 0.92;
-    /// <summary>dark | light | slate</summary>
+    /// <summary>dark | light | slate | system（跟随系统浅/深）</summary>
     public string Theme { get; set; } = "dark";
+    /// <summary>浮窗正文字号倍率（0.85～1.35）</summary>
+    public double FontSizeScale { get; set; } = 1.0;
+    /// <summary>浮窗字体族名；空=默认（微软雅黑 UI / Segoe UI）</summary>
+    public string FontFamilyName { get; set; } = "";
     public bool ShowExtras { get; set; }
 }

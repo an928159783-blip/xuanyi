@@ -1,0 +1,69 @@
+<Window x:Class="HoverTranslate.App.Windows.FeatureGuideWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="炫译 功能介绍"
+        Width="520" Height="560"
+        MinWidth="480" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="White"
+        FontFamily="Microsoft YaHei UI, Microsoft YaHei, Segoe UI"
+        FontSize="14"
+        ShowInTaskbar="False">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Themes/SettingsFrostTheme.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <Style TargetType="Button" BasedOn="{StaticResource FrostButton}"/>
+      <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource FrostPrimaryButton}"/>
+    </ResourceDictionary>
+  </Window.Resources>
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,12">
+      <StackPanel>
+        <TextBlock Text="功能介绍" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,4"/>
+        <TextBlock Style="{StaticResource SettingHintText}" Margin="0,0,0,16"
+                   Text="炫译是托盘程序，无传统主窗口。以下说明可在设置中随时再次打开。"/>
+        <Border Style="{StaticResource FrostSectionBorder}">
+          <StackPanel>
+            <TextBlock Text="托盘与窗口" Style="{StaticResource SettingSectionHeader}"/>
+            <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" LineHeight="20"
+                       Text="图标在任务栏右下角；若看不到，请点击 ^ 展开隐藏图标。&#x0a;右键托盘：打开译文/历史窗、框选截屏、设置、退出。"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource FrostSectionBorder}">
+          <StackPanel>
+            <TextBlock Text="翻译方式" Style="{StaticResource SettingSectionHeader}"/>
+            <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" LineHeight="20"
+                       Text="· 热键翻译选中内容（默认 Ctrl+Shift+T，在「热键与悬停」配置）&#x0a;· 悬停、选中即译、复制后自动翻译（可分别开关）&#x0a;· 框选截屏 OCR（默认 Ctrl+Shift+S）&#x0a;· 部分软件（Electron/PDF）仅支持热键、复制或截屏"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource FrostSectionBorder}">
+          <StackPanel>
+            <TextBlock Text="设置入口" Style="{StaticResource SettingSectionHeader}"/>
+            <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" LineHeight="20"
+                       Text="· 翻译接口 / 译文窗 / 历史窗 / 热键与悬停&#x0a;· 通用：启动提示、保存行为&#x0a;· 隐私：脱敏、本地历史与数据管理、隐私政策&#x0a;· 关于：版本、检查更新、导出诊断包"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource FrostSectionBorder}">
+          <StackPanel>
+            <TextBlock Text="数据与隐私" Style="{StaticResource SettingSectionHeader}"/>
+            <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" LineHeight="20"
+                       Text="待翻译文本仅发往您配置的翻译接口；API Key 仅存本机。截屏 OCR 仅在您主动框选时执行，不会后台扫描屏幕。详见「设置 → 隐私」。"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="1" Background="#FAFBFC" BorderBrush="#E8EDF5" BorderThickness="0,1,0,0" Padding="20,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="打开设置" Margin="0,0,8,0" Click="OnOpenSettings"/>
+        <Button Content="关闭" Width="88" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnClose"/>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

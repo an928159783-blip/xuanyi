@@ -18,6 +18,7 @@ public partial class App : System.Windows.Application
     private HoverTranslateService? _hover;
     private readonly SelectionCaptureService _selectionCapture = new();
     private ConfigService? _configService;
+    private ScreenshotTranslateService? _screenshotTranslate;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -26,7 +27,10 @@ public partial class App : System.Windows.Application
         if (!TryAcquireSingleInstance())
         {
             AppDialog.Info(
-                "炫译已在运行。\n\n请查看任务栏右下角托盘区（点击 ^ 展开隐藏图标），右键托盘图标可打开设置或退出。\n\n本程序没有传统主窗口，启动后只在托盘显示。",
+                $"炫译已在运行（托盘里仍是旧进程，不会自动换成新 exe）。\n\n" +
+                $"请先托盘「退出炫译」，再双击桌面快捷方式。\n\n" +
+                $"本次点击的启动包：{AppBuildInfo.FormatForDisplay()}\n" +
+                $"路径：{AppContext.BaseDirectory}",
                 AppBranding.DisplayName);
             Shutdown();
             return;
@@ -48,28 +52,29 @@ public partial class App : System.Windows.Application
             _coordinator = new TranslationCoordinator(_configService);
             _hover = new HoverTranslateService(_coordinator, _configService);
             _coordinator.AttachHover(_hover);
+            _screenshotTranslate = new ScreenshotTranslateService(_coordinator, _configService);
 
             _tray = new TrayService(
                 _configService,
                 config,
-                () => OnTranslateRequested(),
                 OnExit,
                 OnShowHistory,
                 OnShowTranslation,
                 OnOpenSettings,
-                ApplyHoverFromSettings);
+                OnScreenshotRegionTranslate);
 
             _hotkey = new HotkeyService();
             _hotkey.HotkeyPressed += (_, _) => OnTranslateRequested();
+            _hotkey.ScreenshotHotkeyPressed += (_, _) => OnScreenshotRegionTranslate();
             try
             {
-                _hotkey.Register(config.Hotkey);
+                _hotkey.ApplyConfig(config);
             }
             catch (Exception ex)
             {
                 StartupDiagnostics.LogException("Hotkey", ex);
-                AppDialog.Warning($"{ex.Message}\n将使用默认热键 {HotkeyParser.DefaultHotkey}。", AppBranding.DisplayName);
-                _hotkey.Register(HotkeyParser.DefaultHotkey);
+                AppDialog.Warning($"{ex.Message}\n将使用默认热键。", AppBranding.DisplayName);
+                _hotkey.ApplyConfig(new Core.Models.AppConfig());
             }
 
             ApplyClipboardTranslate(config);
@@ -104,10 +109,16 @@ public partial class App : System.Windows.Application
                 }
             }, DispatcherPriority.ApplicationIdle);
 
+            var shotHk = config.EnableScreenshotRegionHotkey
+                ? (string.IsNullOrWhiteSpace(config.ScreenshotRegionHotkey) ? "Ctrl+Shift+S" : config.ScreenshotRegionHotkey.Trim())
+                : null;
+            var shotHint = shotHk is null
+                ? "托盘可「框选截屏翻译」。"
+                : $"{shotHk} 框选截屏翻译；";
             _tray.ShowBalloon(AppBranding.DisplayName,
                 config.TranslateOnCopy
-                    ? $"已启动。{hk} 翻译；复制后自动翻译已开启。"
-                    : $"已启动。{hk} 翻译选中内容。");
+                    ? $"已启动。{hk} 翻译选中；{shotHint}复制后自动翻译已开启。"
+                    : $"已启动。{hk} 翻译选中；{shotHint}");
             StartupDiagnostics.Log("OnStartup ok");
         }
         catch (Exception ex)
@@ -165,6 +176,11 @@ public partial class App : System.Windows.Application
         _clipboardTranslate.Start(_configService, text => OnTranslateRequested(text));
     }
 
+    public Task TriggerScreenshotRegionTranslateAsync() =>
+        _screenshotTranslate?.StartRegionPickAndTranslateAsync() ?? Task.CompletedTask;
+
+    private void OnScreenshotRegionTranslate() => _ = TriggerScreenshotRegionTranslateAsync();
+
     private void OnOpenSettings() => Current.Dispatcher.Invoke(() =>
     {
         try
@@ -184,7 +200,7 @@ public partial class App : System.Windows.Application
 
         try
         {
-            _hotkey?.ApplyHotkey(config.Hotkey);
+            _hotkey?.ApplyConfig(config);
         }
         catch (Exception ex)
         {

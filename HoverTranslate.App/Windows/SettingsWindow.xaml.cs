@@ -21,9 +21,20 @@ public partial class SettingsWindow : Window
 
     private static readonly ThemeOption[] ThemeItems =
     [
-        new("dark", "深色（默认）"),
-        new("light", "浅色明亮"),
+        new("system", "跟随系统"),
+        new("dark", "深色"),
+        new("light", "浅色"),
         new("slate", "石板灰")
+    ];
+
+    private static readonly FontFamilyOption[] FontFamilyItems =
+    [
+        new("", "默认（微软雅黑 / Segoe UI）"),
+        new("Microsoft YaHei UI", "微软雅黑 UI"),
+        new("Microsoft YaHei", "微软雅黑"),
+        new("Segoe UI", "Segoe UI"),
+        new("SimSun", "宋体"),
+        new("KaiTi", "楷体")
     ];
 
     private static readonly DirectionOption[] TranslationDirectionItems =
@@ -36,6 +47,7 @@ public partial class SettingsWindow : Window
     private bool _uiReady;
     private bool _suppressTranslationOpacity;
     private bool _suppressHistoryOpacity;
+    private bool _suppressGeneralFontScale;
     private bool _recordingHotkey;
 
     public event EventHandler? Saved;
@@ -46,6 +58,8 @@ public partial class SettingsWindow : Window
 
         TranslationThemeCombo.ItemsSource = ThemeItems;
         HistoryThemeCombo.ItemsSource = ThemeItems;
+        GeneralThemeCombo.ItemsSource = ThemeItems;
+        GeneralFontFamilyCombo.ItemsSource = FontFamilyItems;
         TranslationDirectionCombo.ItemsSource = TranslationDirectionItems;
         AddTemplateCombo.ItemsSource = ApiProfileKinds.Templates
             .Select(t => new TemplateItem(t.Kind, t.Label)).ToList();
@@ -66,13 +80,18 @@ public partial class SettingsWindow : Window
             if (_suppressHistoryOpacity) return;
             SetHistoryOpacityPercent((int)HistoryOpacitySlider.Value, fromSlider: true);
         };
+        GeneralFontScaleSlider.ValueChanged += (_, _) =>
+        {
+            if (_suppressGeneralFontScale) return;
+            SetGeneralFontScalePercent((int)GeneralFontScaleSlider.Value, fromSlider: true);
+        };
         TranslationThemeCombo.SelectionChanged += (_, _) => RefreshTranslationPreview();
         HistoryThemeCombo.SelectionChanged += (_, _) => RefreshHistoryPreview();
 
         Loaded += (_, _) =>
         {
             FloatingPanelChrome.WireAllScrollViewers(this);
-            AboutVersionText.Text = $"版本 {UpdateCheckService.CurrentVersion}";
+            AboutVersionText.Text = $"版本 {UpdateCheckService.CurrentVersion} · {AppBuildInfo.FormatForDisplay()}";
             _uiReady = true;
             LoadFromDisk();
             ShowNavPanel(0);
@@ -85,14 +104,26 @@ public partial class SettingsWindow : Window
         ShowNavPanel(NavList.SelectedIndex);
     }
 
+    public void SelectNav(int index)
+    {
+        if (index < 0 || index >= NavList.Items.Count) return;
+        NavList.SelectedIndex = index;
+        ShowNavPanel(index);
+    }
+
     private void ShowNavPanel(int index)
     {
         PanelApi.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
         PanelTranslation.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
         PanelHistory.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
         PanelHotkey.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
-        PanelPrivacy.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
+        PanelGeneral.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
+        PanelPrivacy.Visibility = index == 5 ? Visibility.Visible : Visibility.Collapsed;
+        PanelAbout.Visibility = index == 6 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private void OnOpenFeatureGuide(object sender, RoutedEventArgs e) =>
+        SettingsWindowHost.ShowFeatureGuide(this);
 
     private void LoadFromDisk()
     {
@@ -112,10 +143,19 @@ public partial class SettingsWindow : Window
         EnableHoverCheck.IsChecked = _working.EnableHover;
         HoverDelayBox.Text = _working.HoverDelayMs.ToString();
         EnableHistoryCheck.IsChecked = _working.EnableHistory;
+        ShowPanelOnTranslateCheck.IsChecked = _working.ShowPanelOnTranslate;
+        ShowPanelOnHoverCheck.IsChecked = _working.ShowPanelOnHover;
+        SuppressPanelAfterCloseCheck.IsChecked = _working.SuppressPanelAfterUserClose;
+        HideSettingsForScreenshotPickCheck.IsChecked = _working.HideSettingsForScreenshotPick;
         CloseAfterSaveCheck.IsChecked = _working.CloseSettingsAfterSave;
+        ShowStartupNoticeCheck.IsChecked = _working.ShowStartupNotice;
         HotkeyBox.Text = string.IsNullOrWhiteSpace(_working.Hotkey) ? HotkeyParser.DefaultHotkey : _working.Hotkey;
         TranslateOnSelectionCheck.IsChecked = _working.TranslateOnSelection;
         TranslateOnCopyCheck.IsChecked = _working.TranslateOnCopy;
+        EnableScreenshotHotkeyCheck.IsChecked = _working.EnableScreenshotRegionHotkey;
+        ScreenshotHotkeyBox.Text = string.IsNullOrWhiteSpace(_working.ScreenshotRegionHotkey)
+            ? "Ctrl+Shift+S"
+            : _working.ScreenshotRegionHotkey;
         SelectTranslationDirection(_working.TranslationDirection);
         OverlayTimeoutBox.Text = (_working.OverlayTimeoutMs / 1000).ToString();
         UpdateHistoryStatusUi();
@@ -128,6 +168,9 @@ public partial class SettingsWindow : Window
 
         SelectTheme(TranslationThemeCombo, _working.TranslationPanelUi.Theme);
         SelectTheme(HistoryThemeCombo, _working.HistoryPanelUi.Theme);
+        SelectTheme(GeneralThemeCombo, _working.TranslationPanelUi.Theme);
+        SelectFontFamily(GeneralFontFamilyCombo, _working.TranslationPanelUi.FontFamilyName);
+        SetGeneralFontScalePercent((int)Math.Round(_working.TranslationPanelUi.FontSizeScale * 100));
 
         RefreshTranslationPreview();
         RefreshHistoryPreview();
@@ -172,9 +215,61 @@ public partial class SettingsWindow : Window
             SetHistoryOpacityPercent((int)HistoryOpacitySlider.Value);
     }
 
+    private void SetGeneralFontScalePercent(int percent, bool fromSlider = false)
+    {
+        percent = Math.Clamp(percent, 85, 135);
+        _suppressGeneralFontScale = true;
+        GeneralFontScaleSlider.Value = percent;
+        if (!fromSlider || GeneralFontScaleBox.Text != percent.ToString())
+            GeneralFontScaleBox.Text = percent.ToString();
+        _suppressGeneralFontScale = false;
+    }
+
+    private void OnGeneralFontScaleBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (int.TryParse(GeneralFontScaleBox.Text.Trim(), out var p))
+            SetGeneralFontScalePercent(p);
+        else
+            SetGeneralFontScalePercent((int)GeneralFontScaleSlider.Value);
+    }
+
+    private void OnGeneralFontScalePreset(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button { Tag: string tag } && int.TryParse(tag, out var p))
+            SetGeneralFontScalePercent(p);
+    }
+
+    private void OnGeneralThemeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady || GeneralThemeCombo.SelectedValue is not string theme) return;
+        SelectTheme(TranslationThemeCombo, theme);
+        SelectTheme(HistoryThemeCombo, theme);
+        RefreshTranslationPreview();
+        RefreshHistoryPreview();
+    }
+
     private static void SelectTheme(System.Windows.Controls.ComboBox combo, string? theme)
     {
-        combo.SelectedValue = ThemeItems.Any(t => t.Id == theme) ? theme : "dark";
+        var id = ThemeItems.Any(t => t.Id == theme) ? theme! : "dark";
+        combo.SelectedValue = id;
+        if (combo.SelectedValue is null)
+            combo.SelectedIndex = Math.Max(0, Array.FindIndex(ThemeItems, t => t.Id == id));
+    }
+
+    private static void SelectFontFamily(System.Windows.Controls.ComboBox combo, string? name)
+    {
+        var id = name ?? "";
+        if (!FontFamilyItems.Any(t => t.Id == id))
+            id = "";
+        combo.SelectedValue = id;
+        if (combo.SelectedValue is null)
+            combo.SelectedIndex = 0;
+    }
+
+    private void OnGeneralFontFamilyChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady) return;
+        // 仅全局保存时写入；预览在译文/历史窗
     }
 
     private void UpdateHistoryStatusUi()
@@ -394,6 +489,9 @@ public partial class SettingsWindow : Window
 
     private void OnOpenTerms(object sender, RoutedEventArgs e) => LegalDocuments.Open("terms.md", this);
 
+    private void OnOpenComplianceMemo(object sender, RoutedEventArgs e) =>
+        LegalDocuments.Open("compliance-ai-memo.md", this);
+
     private async void OnCheckUpdate(object sender, RoutedEventArgs e) =>
         await UpdateCheckService.CheckAndNotifyAsync(this).ConfigureAwait(true);
 
@@ -401,7 +499,7 @@ public partial class SettingsWindow : Window
     {
         if (!_working.EnableHistory)
         {
-            AppDialog.Info("请先在上方勾选「启用本地翻译历史」。", owner: this);
+            AppDialog.Info("请先在「历史窗」页勾选「保存翻译到本地历史」。", owner: this);
             return;
         }
 
@@ -423,6 +521,58 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             AppDialog.Warning($"导出失败：{ex.Message}", owner: this);
+        }
+    }
+
+    private async void OnImportHistory(object sender, RoutedEventArgs e)
+    {
+        if (!_working.EnableHistory)
+        {
+            AppDialog.Info("请先在「历史窗」页勾选「保存翻译到本地历史」。", owner: this);
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "导入翻译历史",
+            Filter = "JSON 文件|*.json"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var mode = await AppDialog.AskImportHistoryModeAsync(AppBranding.SettingsTitle, this).ConfigureAwait(true);
+        if (mode is null)
+            return;
+
+        var merge = mode == AppDialog.ImportHistoryMode.Merge;
+
+        var importButton = sender as System.Windows.Controls.Button;
+        if (importButton is not null)
+            importButton.IsEnabled = false;
+
+        try
+        {
+            var path = dialog.FileName;
+            var count = await System.Threading.Tasks.Task.Run(() =>
+            {
+                using var store = new HistoryStore();
+                return store.ImportFromJsonFile(path, merge);
+            }).ConfigureAwait(true);
+
+            AppDialog.Info($"已导入 {count} 条记录。", owner: this);
+            UpdateHistoryStatusUi();
+            if (HistoryPanelWindow.IsPanelVisible)
+                HistoryPanelWindow.Instance.ReloadHistory(new HistoryStore());
+        }
+        catch (Exception ex)
+        {
+            AppDialog.Warning($"导入失败：{ex.Message}", owner: this);
+        }
+        finally
+        {
+            if (importButton is not null)
+                importButton.IsEnabled = true;
         }
     }
 
@@ -460,9 +610,18 @@ public partial class SettingsWindow : Window
             delay = 800;
         _working.HoverDelayMs = Math.Min(5000, delay);
         _working.EnableHistory = EnableHistoryCheck.IsChecked == true;
+        _working.ShowPanelOnTranslate = ShowPanelOnTranslateCheck.IsChecked == true;
+        _working.ShowPanelOnHover = ShowPanelOnHoverCheck.IsChecked == true;
+        _working.SuppressPanelAfterUserClose = SuppressPanelAfterCloseCheck.IsChecked == true;
+        _working.HideSettingsForScreenshotPick = HideSettingsForScreenshotPickCheck.IsChecked == true;
         _working.CloseSettingsAfterSave = CloseAfterSaveCheck.IsChecked == true;
+        _working.ShowStartupNotice = ShowStartupNoticeCheck.IsChecked == true;
         _working.TranslateOnSelection = TranslateOnSelectionCheck.IsChecked == true;
         _working.TranslateOnCopy = TranslateOnCopyCheck.IsChecked == true;
+        _working.EnableScreenshotRegionHotkey = EnableScreenshotHotkeyCheck.IsChecked == true;
+        _working.ScreenshotRegionHotkey = string.IsNullOrWhiteSpace(ScreenshotHotkeyBox.Text)
+            ? "Ctrl+Shift+S"
+            : ScreenshotHotkeyBox.Text.Trim();
         if (TranslationDirectionCombo.SelectedValue is string dir)
             _working.TranslationDirection = dir;
 
@@ -485,12 +644,19 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        var globalTheme = GeneralThemeCombo.SelectedValue as string ?? "dark";
+        var globalScale = ConfigService.ClampFontSizeScale(GeneralFontScaleSlider.Value / 100.0);
+
         _working.TranslationPanelUi.Opacity = PanelAppearance.FromPercent((int)TranslationOpacitySlider.Value);
-        _working.TranslationPanelUi.Theme = TranslationThemeCombo.SelectedValue as string ?? "dark";
+        _working.TranslationPanelUi.Theme = TranslationThemeCombo.SelectedValue as string ?? globalTheme;
+        var globalFont = GeneralFontFamilyCombo.SelectedValue as string ?? "";
+        _working.TranslationPanelUi.FontSizeScale = globalScale;
+        _working.TranslationPanelUi.FontFamilyName = globalFont;
         _working.TranslationPanelUi.ShowExtras = TranslationExtrasCheck.IsChecked == true;
         _working.HistoryPanelUi.Opacity = PanelAppearance.FromPercent((int)HistoryOpacitySlider.Value);
-        _working.HistoryPanelUi.Theme = HistoryThemeCombo.SelectedValue as string ?? "dark";
-        _working.HistoryPanelUi.ShowExtras = HistoryExtrasCheck.IsChecked == true;
+        _working.HistoryPanelUi.Theme = HistoryThemeCombo.SelectedValue as string ?? globalTheme;
+        _working.HistoryPanelUi.FontSizeScale = globalScale;
+        _working.HistoryPanelUi.FontFamilyName = globalFont;
 
         _configService.Save(_working);
         Saved?.Invoke(this, EventArgs.Empty);
@@ -530,6 +696,43 @@ public partial class SettingsWindow : Window
     private void OnResetHotkey(object sender, RoutedEventArgs e) =>
         HotkeyBox.Text = HotkeyParser.DefaultHotkey;
 
+    private async void OnScreenshotRegionNow(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.Application.Current is not App app)
+            return;
+
+        var hideSettings = HideSettingsForScreenshotPickCheck.IsChecked == true;
+        if (!hideSettings)
+        {
+            var ask = AppDialog.Confirm(
+                "不隐藏设置窗口时，框选区域可能被设置窗遮挡。\n\n是否暂时隐藏设置窗口后再框选？",
+                "框选截屏翻译",
+                owner: this);
+            if (!ask)
+            {
+                await app.TriggerScreenshotRegionTranslateAsync().ConfigureAwait(true);
+                return;
+            }
+
+            hideSettings = true;
+        }
+
+        try
+        {
+            if (hideSettings)
+                Hide();
+            await app.TriggerScreenshotRegionTranslateAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            if (hideSettings)
+            {
+                Show();
+                Activate();
+            }
+        }
+    }
+
     private void SelectTranslationDirection(string? id)
     {
         var key = string.IsNullOrWhiteSpace(id)
@@ -542,6 +745,7 @@ public partial class SettingsWindow : Window
     }
 
     private sealed record ThemeOption(string Id, string Label);
+    private sealed record FontFamilyOption(string Id, string Label);
     private sealed record DirectionOption(string Id, string Label);
     private sealed record ProviderItem(string Id, string Label);
     private sealed record TemplateItem(string Kind, string Label);

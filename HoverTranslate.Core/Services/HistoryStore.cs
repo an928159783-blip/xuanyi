@@ -81,9 +81,31 @@ public sealed class HistoryStore : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    public void Add(string source, string target, string provider)
+    public void Add(string source, string target, string provider) =>
+        InsertRow(source, target, provider, DateTime.UtcNow, transaction: null);
+
+    /// <summary>写入历史；若与最近一条原文+译文完全相同则跳过。</summary>
+    public bool TryAdd(string source, string target, string provider)
+    {
+        source = source.Trim();
+        target = target.Trim();
+        if (IsDuplicateOfLatest(source, target))
+            return false;
+
+        InsertRow(source, target, provider, DateTime.UtcNow, transaction: null);
+        return true;
+    }
+
+    private void InsertRow(
+        string source,
+        string target,
+        string provider,
+        DateTime createdAt,
+        SqliteTransaction? transaction)
     {
         using var cmd = _connection.CreateCommand();
+        if (transaction is not null)
+            cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO history (source, target, provider, created_at)
             VALUES ($s, $t, $p, $c)
@@ -91,8 +113,20 @@ public sealed class HistoryStore : IDisposable
         cmd.Parameters.AddWithValue("$s", source);
         cmd.Parameters.AddWithValue("$t", target);
         cmd.Parameters.AddWithValue("$p", provider);
-        cmd.Parameters.AddWithValue("$c", DateTime.UtcNow.ToString("O"));
+        cmd.Parameters.AddWithValue("$c", createdAt.ToUniversalTime().ToString("O"));
         cmd.ExecuteNonQuery();
+    }
+
+    private bool IsDuplicateOfLatest(string source, string target)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT source, target FROM history ORDER BY id DESC LIMIT 1";
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return false;
+
+        return string.Equals(reader.GetString(0), source, StringComparison.Ordinal)
+               && string.Equals(reader.GetString(1), target, StringComparison.Ordinal);
     }
 
     public IReadOnlyList<HistoryEntry> GetRecent(int limit = 80)
@@ -131,6 +165,59 @@ public sealed class HistoryStore : IDisposable
         var entries = GetRecent(limit);
         var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(filePath, json);
+    }
+
+    /// <summary>从 JSON 导入历史。merge=true 追加，false 先清空再导入。</summary>
+    public int ImportFromJsonFile(string filePath, bool merge = true)
+    {
+        var json = File.ReadAllText(filePath);
+        var entries = JsonSerializer.Deserialize<List<HistoryEntry>>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (entries is null || entries.Count == 0)
+            throw new InvalidOperationException("文件中没有可导入的历史记录。");
+
+        var ordered = entries
+            .Where(e => !string.IsNullOrWhiteSpace(e.Source) || !string.IsNullOrWhiteSpace(e.Target))
+            .OrderBy(e => e.CreatedAt == default ? DateTime.UtcNow : e.CreatedAt)
+            .Select(e =>
+            {
+                var source = e.Source?.Trim() ?? "";
+                var target = e.Target?.Trim() ?? "";
+                if (string.IsNullOrEmpty(target) && !string.IsNullOrEmpty(source))
+                    target = source;
+                return (source, target, e.Provider?.Trim() ?? "", e.CreatedAt);
+            })
+            .ToList();
+
+        using var tx = _connection.BeginTransaction();
+        try
+        {
+            if (!merge)
+            {
+                using var clear = _connection.CreateCommand();
+                clear.Transaction = tx;
+                clear.CommandText = "DELETE FROM history";
+                clear.ExecuteNonQuery();
+            }
+
+            foreach (var (source, target, provider, createdAt) in ordered)
+            {
+                var at = createdAt == default ? DateTime.UtcNow : createdAt.ToUniversalTime();
+                InsertRow(source, target, provider, at, tx);
+            }
+
+            tx.Commit();
+        }
+        catch
+        {
+            tx.Rollback();
+            throw;
+        }
+
+        return ordered.Count;
     }
 
     public static string DatabasePath => Path.Combine(ConfigService.ConfigDirectory, "history.db");

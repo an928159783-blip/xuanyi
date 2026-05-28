@@ -60,7 +60,9 @@
           <ListBoxItem Content="译文窗"/>
           <ListBoxItem Content="历史窗"/>
           <ListBoxItem Content="热键与悬停"/>
-          <ListBoxItem Content="通用与隐私"/>
+          <ListBoxItem Content="通用"/>
+          <ListBoxItem Content="隐私"/>
+          <ListBoxItem Content="关于"/>
         </ListBox>
       </DockPanel>
     </Border>
@@ -182,7 +184,14 @@
                 <Border x:Name="TranslationPreview" Height="56" CornerRadius="10" BorderThickness="1" Margin="0,0,0,12">
                   <TextBlock Text="预览" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
-                <CheckBox x:Name="TranslationExtrasCheck" Content="显示附加项（状态、复制按钮）"/>
+                <CheckBox x:Name="TranslationExtrasCheck" Content="显示附加项（状态栏）"/>
+                <CheckBox x:Name="ShowPanelOnTranslateCheck" Content="热键 / 复制 / 选中翻译时在译文窗显示结果"
+                          Margin="0,12,0,6" IsChecked="True"/>
+                <CheckBox x:Name="ShowPanelOnHoverCheck" Content="悬停翻译时在译文窗显示结果（默认关闭）"
+                          Margin="0,0,0,6"/>
+                <CheckBox x:Name="SuppressPanelAfterCloseCheck"
+                          Content="手动关闭译文窗后，不再自动弹出（直至再次从托盘打开译文窗）"
+                          Margin="0,0,0,6" IsChecked="True"/>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,14,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -234,6 +243,14 @@
                   <TextBlock Text="预览" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
                 <CheckBox x:Name="HistoryExtrasCheck" Content="显示条数与「打开」按钮（「清空历史」始终显示）"/>
+                <CheckBox x:Name="EnableHistoryCheck" Content="保存翻译到本地历史（SQLite，仅存本机）"
+                          Margin="0,12,0,0" Checked="OnHistoryToggleChanged" Unchecked="OnHistoryToggleChanged"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="关闭后不再写入历史。导出备份见下方按钮；清空见「隐私」。"/>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                  <Button Content="导出历史 (JSON)" Margin="0,0,8,0" Click="OnExportHistory"/>
+                  <Button Content="导入历史 (JSON)" Click="OnImportHistory"/>
+                </StackPanel>
                 <Border Background="#F1F5F9" CornerRadius="10" Padding="12,10" Margin="0,12,0,0">
                   <StackPanel Orientation="Horizontal">
                     <Ellipse x:Name="HistoryStatusDot" Width="10" Height="10" Fill="#22C55E" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -279,10 +296,33 @@
             </Border>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
+                <TextBlock Text="截屏翻译（OCR）" Style="{StaticResource SettingSectionHeader}"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" Margin="0,0,0,8"
+                           Text="用于无法选中复制的画面。仅在你按键或点击下方按钮时截屏，不会后台扫描。"/>
+                <CheckBox x:Name="EnableScreenshotHotkeyCheck" Content="启用框选截屏热键" Margin="0,0,0,8"/>
+                <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
+                    <TextBlock Text="截屏热键" Style="{StaticResource SettingToolbarLabel}"/>
+                  </Border>
+                  <TextBox x:Name="ScreenshotHotkeyBox" Grid.Column="2" Width="200" IsReadOnly="True"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <CheckBox x:Name="HideSettingsForScreenshotPickCheck" Content="框选前自动隐藏设置窗口（便于全屏框选）"
+                          Margin="0,0,0,8" IsChecked="True"/>
+                <Button Content="立即框选截屏翻译" HorizontalAlignment="Left" Click="OnScreenshotRegionNow"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SectionBorder}">
+              <StackPanel>
                 <TextBlock Text="悬停翻译" Style="{StaticResource SettingSectionHeader}"/>
                 <CheckBox x:Name="EnableHoverCheck" Content="启用悬停翻译"/>
                 <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,6,0,0" TextWrapping="Wrap"
-                           Text="悬停依赖系统无障碍接口读取鼠标下文字；部分软件（Electron、PDF、游戏）不支持，请用热键或「复制后自动翻译」。无法选中画面需等待 OCR 截屏功能。"/>
+                           Text="悬停优先读取整行/段落英文（非单词）；Electron/PDF 等可能仍无效，请用热键、复制或上方「截屏翻译（OCR）」。"/>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,8,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -299,38 +339,124 @@
             </Border>
           </StackPanel>
 
-          <!-- 通用与隐私 -->
-          <StackPanel x:Name="PanelPrivacy" Visibility="Collapsed">
-            <TextBlock Text="通用与隐私" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,16"/>
+          <!-- 通用 -->
+          <StackPanel x:Name="PanelGeneral" Visibility="Collapsed">
+            <TextBlock Text="通用" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,4"/>
+            <TextBlock Style="{StaticResource SettingHintText}" Margin="0,0,0,16"
+                       Text="全局外观与启动行为。译文窗/历史窗可单独调透明度与附加项。"/>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
-                <CheckBox x:Name="SanitizeCheck" Content="自动脱敏（掩码 token / 密钥 / 邮箱）"/>
-                <CheckBox x:Name="EnableHistoryCheck" Content="启用本地翻译历史（SQLite，仅存本机）"
-                          Checked="OnHistoryToggleChanged" Unchecked="OnHistoryToggleChanged"/>
-                <CheckBox x:Name="CloseAfterSaveCheck" Content="保存后自动关闭设置窗口（不勾选则保持打开，配置仍会立即生效）"
-                          Margin="0,12,0,0"/>
+                <TextBlock Text="外观" Style="{StaticResource SettingSectionHeader}"/>
+                <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
+                    <TextBlock Text="浮窗主题" Style="{StaticResource SettingToolbarLabel}"/>
+                  </Border>
+                  <ComboBox x:Name="GeneralThemeCombo" Grid.Column="2" Width="220"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            DisplayMemberPath="Label" SelectedValuePath="Id"
+                            SelectionChanged="OnGeneralThemeChanged"/>
+                </Grid>
+                <TextBlock Text="浮窗字号" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                  <Slider x:Name="GeneralFontScaleSlider" Minimum="85" Maximum="135" Width="220"
+                          TickFrequency="5" IsSnapToTickEnabled="True"/>
+                  <TextBox x:Name="GeneralFontScaleBox" Width="44" Margin="8,0,0,0" VerticalAlignment="Center"
+                           MaxLength="3" LostFocus="OnGeneralFontScaleBoxLostFocus"/>
+                  <TextBlock Text="%" Style="{StaticResource SettingRowLabel}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                  <Button Content="标准" Tag="100" Padding="8,4" Margin="0,0,6,0" Click="OnGeneralFontScalePreset"/>
+                  <Button Content="较大" Tag="115" Padding="8,4" Margin="0,0,6,0" Click="OnGeneralFontScalePreset"/>
+                  <Button Content="更大" Tag="130" Padding="8,4" Click="OnGeneralFontScalePreset"/>
+                </StackPanel>
+                <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
+                    <TextBlock Text="浮窗字体" Style="{StaticResource SettingToolbarLabel}"/>
+                  </Border>
+                  <ComboBox x:Name="GeneralFontFamilyCombo" Grid.Column="2" Width="220"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            DisplayMemberPath="Label" SelectedValuePath="Id"/>
+                </Grid>
+                <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap"
+                           Text="保存后同步到译文窗与历史窗；译文/历史页可单独调透明度。右键浮窗正文可复制、全选。"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
-                <TextBlock Text="数据管理" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,10"/>
+                <TextBlock Text="行为" Style="{StaticResource SettingSectionHeader}"/>
+                <CheckBox x:Name="CloseAfterSaveCheck" Content="保存后自动关闭设置窗口"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="24,2,0,12" TextWrapping="Wrap"
+                           Text="不勾选时保存后仍保持打开，配置会立即生效。"/>
+                <CheckBox x:Name="ShowStartupNoticeCheck" Content="启动时显示简要提示"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="24,2,0,0" TextWrapping="Wrap"
+                           Text="详细用法见「关于 → 功能介绍」。"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <!-- 隐私 -->
+          <StackPanel x:Name="PanelPrivacy" Visibility="Collapsed">
+            <TextBlock Text="隐私" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,4"/>
+            <TextBlock Style="{StaticResource SettingHintText}" Margin="0,0,0,16"
+                       Text="本地数据处理、出境说明与您的数据控制权。"/>
+            <Border Style="{StaticResource SectionBorder}">
+              <StackPanel>
+                <TextBlock Text="发送前保护" Style="{StaticResource SettingSectionHeader}"/>
+                <CheckBox x:Name="SanitizeCheck" Content="自动脱敏"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="24,2,0,12" TextWrapping="Wrap"
+                           Text="翻译请求发出前，掩码疑似 API Key、Token、邮箱等片段。"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" Foreground="#1E40AF"
+                           Text="待翻译正文会发往您在「翻译接口」中配置的服务商；境外节点可能涉及数据出境，费用按服务商计费。"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SectionBorder}">
+              <StackPanel>
+                <TextBlock Text="本地数据" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,8"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" Margin="0,0,0,10"
+                           Text="历史记录默认仅存本机 SQLite；截屏 OCR 仅在您主动框选时执行，不后台扫描屏幕。"/>
                 <StackPanel Orientation="Horizontal">
                   <Button Content="导出历史" Margin="0,0,8,0" Click="OnExportHistory"/>
+                  <Button Content="导入历史" Margin="0,0,8,0" Click="OnImportHistory"/>
                   <Button Content="清空翻译历史" Style="{StaticResource DangerButton}" Margin="0,0,8,0" Click="OnClearHistory"/>
-                  <Button Content="导出诊断包" Margin="0,0,8,0" Click="OnExportDiagnostics"/>
                   <Button Content="打开配置目录" Click="OnOpenConfigDir"/>
                 </StackPanel>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
-                <TextBlock Text="关于与法律" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,8"/>
-                <TextBlock x:Name="AboutVersionText" Style="{StaticResource SettingHintText}" Margin="0,0,0,10"/>
+                <TextBlock Text="政策与合规" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,8"/>
                 <WrapPanel>
                   <Button Content="隐私政策" Margin="0,0,8,8" Click="OnOpenPrivacy"/>
                   <Button Content="用户协议" Margin="0,0,8,8" Click="OnOpenTerms"/>
-                  <Button Content="检查更新" Margin="0,0,8,8" Click="OnCheckUpdate"/>
+                  <Button Content="AI 合规说明" Margin="0,0,8,8" Click="OnOpenComplianceMemo"/>
                 </WrapPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <!-- 关于 -->
+          <StackPanel x:Name="PanelAbout" Visibility="Collapsed">
+            <TextBlock Text="关于" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,16"/>
+            <Border Style="{StaticResource SectionBorder}">
+              <StackPanel>
+                <TextBlock x:Name="AboutVersionText" Style="{StaticResource SettingHintText}" Margin="0,0,0,12"/>
+                <WrapPanel Margin="0,0,0,8">
+                  <Button Content="功能介绍" Margin="0,0,8,8" Click="OnOpenFeatureGuide"/>
+                  <Button Content="检查更新" Margin="0,0,8,8" Click="OnCheckUpdate"/>
+                  <Button Content="导出诊断包" Margin="0,0,8,8" Click="OnExportDiagnostics"/>
+                </WrapPanel>
+                <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap"
+                           Text="诊断包为脱敏日志与配置，不含 API Key。法律文档见「隐私」页。"/>
               </StackPanel>
             </Border>
           </StackPanel>

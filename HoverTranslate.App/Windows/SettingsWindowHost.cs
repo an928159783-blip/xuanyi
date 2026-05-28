@@ -1,3 +1,5 @@
+using System.Windows;
+
 namespace HoverTranslate.App.Windows;
 
 public static class SettingsWindowHost
@@ -7,7 +9,7 @@ public static class SettingsWindowHost
 
     public static bool IsOpen => _instance is { IsVisible: true };
 
-    public static void ShowOrActivate(Action? onSaved = null)
+    public static void ShowOrActivate(Action? onSaved = null, int? navIndex = null)
     {
         if (onSaved is not null)
             _onSaved = onSaved;
@@ -22,5 +24,15 @@ public static class SettingsWindowHost
         _instance.Show();
         _instance.Activate();
         _instance.Focus();
+        if (navIndex is >= 0)
+            _instance.SelectNav(navIndex.Value);
+    }
+
+    public static void ShowFeatureGuide(Window? owner = null)
+    {
+        var guide = new FeatureGuideWindow();
+        if (owner is { IsVisible: true })
+            guide.Owner = owner;
+        guide.ShowDialog();
     }
 }

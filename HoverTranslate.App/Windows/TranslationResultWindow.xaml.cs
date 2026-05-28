@@ -9,6 +9,9 @@ public partial class TranslationResultWindow : System.Windows.Window
 
     public static bool IsPanelVisible => _instance is { Visibility: System.Windows.Visibility.Visible, IsVisible: true };
 
+    /// <summary>用户手动关闭译文窗后为 true，直至再次通过托盘/设置打开。</summary>
+    public static bool SuppressAutoShowUntilManualOpen { get; private set; }
+
     public static TranslationResultWindow Instance
     {
         get
@@ -34,8 +37,15 @@ public partial class TranslationResultWindow : System.Windows.Window
         WindowResizeHelper.Wire(ResizeRight, this, ResizeEdge.Right);
         WindowResizeHelper.Wire(ResizeBottom, this, ResizeEdge.Bottom);
         WindowResizeHelper.Wire(ResizeCorner, this, ResizeEdge.BottomRight);
+        FloatingPanelContextMenu.AttachCopyMenu(TargetText, GetCombinedCopyText);
+        FloatingPanelContextMenu.AttachCopyMenu(SourceText, GetCombinedCopyText);
         Hide();
     }
+
+    private string GetCombinedCopyText() =>
+        TranslationCopyText.Combine(
+            SourceText.Visibility == System.Windows.Visibility.Visible ? SourceText.Text : null,
+            TargetText.Text);
 
     private void RememberPlacement()
     {
@@ -45,11 +55,15 @@ public partial class TranslationResultWindow : System.Windows.Window
     private void OnClosePanel()
     {
         CancelAutoClose();
+        var config = new ConfigService().Load();
+        if (config.SuppressPanelAfterUserClose)
+            SuppressAutoShowUntilManualOpen = true;
         FloatingPanelWindowActions.HidePanel(this, RememberPlacement);
     }
 
     public static void EnsureVisible()
     {
+        SuppressAutoShowUntilManualOpen = false;
         var w = Instance;
         var config = new ConfigService().Load();
         w.ResetLayout();
@@ -96,6 +110,7 @@ public partial class TranslationResultWindow : System.Windows.Window
     public void ShowCurrent(string source, string target, string provider)
     {
         var config = new ConfigService().Load();
+        CopyButton.Content = "复制译文";
         ApplyAppearance(config.TranslationPanelUi);
 
         if (ExtrasPanel.Visibility == System.Windows.Visibility.Visible)
@@ -173,12 +188,18 @@ public partial class TranslationResultWindow : System.Windows.Window
 
     private void OnCopy(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(TargetText.Text) || TargetText.Text == "…") return;
+        var text = TargetText.SelectedText;
+        if (string.IsNullOrWhiteSpace(text))
+            text = GetCombinedCopyText();
+        if (string.IsNullOrWhiteSpace(text) || text == "…") return;
+
         try
         {
-            Clipboard.SetText(TargetText.Text);
+            System.Windows.Clipboard.SetText(text);
             if (ExtrasPanel.Visibility == System.Windows.Visibility.Visible)
                 StatusText.Text = "已复制";
+            else
+                CopyButton.Content = "已复制";
         }
         catch
         {

@@ -7,30 +7,56 @@ namespace HoverTranslate.App.Services;
 public sealed class HotkeyService : IDisposable
 {
     private HwndSource? _hwndSource;
-    private bool _registered;
+    private readonly Dictionary<int, Action> _handlers = new();
+    private readonly Dictionary<int, string> _registeredHotkeys = new();
     private string _currentHotkey = HotkeyParser.DefaultHotkey;
 
     public event EventHandler? HotkeyPressed;
+    public event EventHandler? ScreenshotHotkeyPressed;
 
     public string CurrentHotkey => _currentHotkey;
 
-    public void Register(string? hotkey = null) => ApplyHotkey(hotkey ?? HotkeyParser.DefaultHotkey);
+    public void Register(string? hotkey = null) => ApplyConfig(new AppConfig { Hotkey = hotkey ?? HotkeyParser.DefaultHotkey });
 
-    public void ApplyHotkey(string hotkey)
+    public void ApplyConfig(AppConfig config)
     {
         EnsureHost();
-        if (_registered)
-        {
-            NativeMethods.UnregisterHotKey(_hwndSource!.Handle, NativeMethods.HotkeyId);
-            _registered = false;
-        }
+        UnregisterAll();
 
+        _currentHotkey = string.IsNullOrWhiteSpace(config.Hotkey)
+            ? HotkeyParser.DefaultHotkey
+            : config.Hotkey.Trim();
+
+        RegisterOne(NativeMethods.HotkeyIdTranslate, _currentHotkey, () => HotkeyPressed?.Invoke(this, EventArgs.Empty));
+
+        if (config.EnableScreenshotRegionHotkey)
+        {
+            var shot = string.IsNullOrWhiteSpace(config.ScreenshotRegionHotkey)
+                ? "Ctrl+Shift+S"
+                : config.ScreenshotRegionHotkey.Trim();
+            RegisterOne(NativeMethods.HotkeyIdScreenshot, shot, () => ScreenshotHotkeyPressed?.Invoke(this, EventArgs.Empty));
+        }
+    }
+
+    public void ApplyHotkey(string hotkey) => ApplyConfig(new AppConfig { Hotkey = hotkey });
+
+    private void RegisterOne(int id, string hotkey, Action handler)
+    {
         var (mods, vk) = HotkeyParser.Parse(hotkey);
-        if (!NativeMethods.RegisterHotKey(_hwndSource!.Handle, NativeMethods.HotkeyId, mods, vk))
+        if (!NativeMethods.RegisterHotKey(_hwndSource!.Handle, id, mods, vk))
             throw new InvalidOperationException($"无法注册全局热键「{hotkey}」，可能已被其它程序占用。");
 
-        _currentHotkey = hotkey;
-        _registered = true;
+        _handlers[id] = handler;
+        _registeredHotkeys[id] = hotkey;
+    }
+
+    private void UnregisterAll()
+    {
+        if (_hwndSource is null) return;
+        foreach (var id in _registeredHotkeys.Keys.ToList())
+            NativeMethods.UnregisterHotKey(_hwndSource.Handle, id);
+        _handlers.Clear();
+        _registeredHotkeys.Clear();
     }
 
     private void EnsureHost()
@@ -53,19 +79,21 @@ public sealed class HotkeyService : IDisposable
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == NativeMethods.WM_HOTKEY && wParam.ToInt32() == NativeMethods.HotkeyId)
+        if (msg == NativeMethods.WM_HOTKEY)
         {
-            HotkeyPressed?.Invoke(this, EventArgs.Empty);
-            handled = true;
+            var id = wParam.ToInt32();
+            if (_handlers.TryGetValue(id, out var action))
+            {
+                action();
+                handled = true;
+            }
         }
         return IntPtr.Zero;
     }
 
     public void Dispose()
     {
-        if (_registered && _hwndSource is not null)
-            NativeMethods.UnregisterHotKey(_hwndSource.Handle, NativeMethods.HotkeyId);
-        _registered = false;
+        UnregisterAll();
         _hwndSource?.RemoveHook(WndProc);
         _hwndSource?.Dispose();
         _hwndSource = null;

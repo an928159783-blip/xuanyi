@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,6 +16,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\HoverTranslate.Core\HoverTranslate.Core.csproj" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\config.example.json" Link="config.example.json">
@@ -34,4 +35,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <!-- dotnet publish 成功后自动刷新桌面「炫译.lnk」（仅 win-x64） -->
+  <Target Name="RefreshDesktopShortcutAfterPublish"
+          AfterTargets="Publish"
+          Condition="'$(RuntimeIdentifier)' == 'win-x64' and '$(RefreshDesktopShortcut)' != 'false'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\scripts\create-desktop-shortcut.ps1&quot; -SkipPublish -NoKill" />
+  </Target>
 </Project>

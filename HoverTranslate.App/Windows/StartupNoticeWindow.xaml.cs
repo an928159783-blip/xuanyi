@@ -9,11 +9,19 @@ public partial class StartupNoticeWindow : Window
     public StartupNoticeWindow()
     {
         InitializeComponent();
+        BuildStampText.Text = HoverTranslate.App.Services.AppBuildInfo.FormatForDisplay();
+    }
+
+    private void OnShowFeatureGuide(object sender, RoutedEventArgs e)
+    {
+        SettingsWindowHost.ShowFeatureGuide(this);
+        DontShowAgain = DontShowAgainCheck.IsChecked == true;
+        Close();
     }
 
     private void OnOpenSettings(object sender, RoutedEventArgs e)
     {
-        SettingsWindowHost.ShowOrActivate();
+        SettingsWindowHost.ShowOrActivate(navIndex: 4);
         DontShowAgain = DontShowAgainCheck.IsChecked == true;
         Close();
     }
