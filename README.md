@@ -18,8 +18,17 @@ Windows 托盘热键与悬停翻译工具。支持 **OpenAI 兼容**、**微软 
 
 ## 环境要求
 
-- Windows 10/11
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)（开发/编译）
+- Windows 10 19041+ / Windows 11（x64）
+- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（运行已 publish 的 exe 时需要）
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)（仅开发/编译）
+
+## 安装 / 升级（1.0）
+
+1. 解压 `dist\XuanYi-1.0.0-win-x64.zip` 或 `publish\` 目录
+2. 运行 `HoverTranslate.exe`；或 `.\scripts\create-desktop-shortcut.ps1` 创建桌面「炫译」
+3. **升级前** 托盘 → **退出炫译**（运行中进程不会加载新 exe）
+
+发行说明见 [docs/RELEASE-NOTES-1.0.0.md](docs/RELEASE-NOTES-1.0.0.md)；回归见 [docs/REGRESSION-translate-paths.md](docs/REGRESSION-translate-paths.md)。
 
 ## 快速开始
 

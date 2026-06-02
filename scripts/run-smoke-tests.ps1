@@ -30,7 +30,14 @@ if ($hasVuln) {
 Test-Check "No vulnerable NuGet packages" (-not $hasVuln)
 
 Write-Host "=== Publish artifacts ===" -ForegroundColor Cyan
-$pub = Join-Path $root "HoverTranslate.App\bin\Release\net8.0-windows\win-x64\publish"
+$releaseRoot = Join-Path $root "HoverTranslate.App\bin\Release"
+$pubDirs = Get-ChildItem $releaseRoot -Directory -Recurse -Filter publish -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $_.FullName "HoverTranslate.exe") }
+$pub = if ($pubDirs) {
+    ($pubDirs | Sort-Object { (Get-Item (Join-Path $_.FullName "HoverTranslate.exe")).LastWriteTime } -Descending | Select-Object -First 1).FullName
+} else {
+    Join-Path $root "HoverTranslate.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish"
+}
 @("HoverTranslate.exe", "HoverTranslate.dll", "HoverTranslate.Core.dll", "xuanyi.ico") | ForEach-Object {
     Test-Check "Publish file $_" (Test-Path (Join-Path $pub $_))
 }

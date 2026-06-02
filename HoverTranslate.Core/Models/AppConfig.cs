@@ -20,7 +20,7 @@ public sealed class AppConfig
     public bool TranslateOnSelection { get; set; }
     public bool EnableHistory { get; set; } = true;
     public bool EnableHover { get; set; } = true;
-    public int HoverDelayMs { get; set; } = 500;
+    public int HoverDelayMs { get; set; } = 600;
     /// <summary>悬停防抖下限（与 hoverDelayMs 取较大值），建议 300～500</summary>
     public int HoverMinDebounceMs { get; set; } = 400;
     /// <summary>悬停译文缓存 TTL（秒）</summary>
