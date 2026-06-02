@@ -49,20 +49,25 @@ public partial class SettingsWindow : Window
     private bool _suppressHistoryOpacity;
     private bool _suppressGeneralFontScale;
     private bool _recordingHotkey;
+    private bool _recordingScreenshotHotkey;
 
-    public event EventHandler? Saved;
+    public event EventHandler<AppConfig>? Saved;
 
     public SettingsWindow()
     {
         InitializeComponent();
+
+        ProfileListHost.AddHandler(UIElement.PreviewMouseWheelEvent, new MouseWheelEventHandler(OnProfileListPreviewMouseWheel), true);
+        ProfileList.AddHandler(UIElement.PreviewMouseWheelEvent, new MouseWheelEventHandler(OnProfileListPreviewMouseWheel), true);
 
         TranslationThemeCombo.ItemsSource = ThemeItems;
         HistoryThemeCombo.ItemsSource = ThemeItems;
         GeneralThemeCombo.ItemsSource = ThemeItems;
         GeneralFontFamilyCombo.ItemsSource = FontFamilyItems;
         TranslationDirectionCombo.ItemsSource = TranslationDirectionItems;
-        AddTemplateCombo.ItemsSource = ApiProfileKinds.Templates
-            .Select(t => new TemplateItem(t.Kind, t.Label)).ToList();
+        AddTemplateCombo.ItemsSource = ApiProfileAddPresets.All;
+        AddTemplateCombo.DisplayMemberPath = "Label";
+        AddTemplateCombo.SelectedValuePath = "Id";
         AddTemplateCombo.SelectedIndex = 0;
 
         ProfileKindCombo.ItemsSource = ApiProfileKinds.Templates
@@ -73,20 +78,30 @@ public partial class SettingsWindow : Window
         TranslationOpacitySlider.ValueChanged += (_, _) =>
         {
             if (_suppressTranslationOpacity) return;
-            SetTranslationOpacityPercent((int)TranslationOpacitySlider.Value, fromSlider: true);
+            SetTranslationOpacityPercent((int)TranslationOpacitySlider.Value);
         };
         HistoryOpacitySlider.ValueChanged += (_, _) =>
         {
             if (_suppressHistoryOpacity) return;
-            SetHistoryOpacityPercent((int)HistoryOpacitySlider.Value, fromSlider: true);
+            SetHistoryOpacityPercent((int)HistoryOpacitySlider.Value);
         };
         GeneralFontScaleSlider.ValueChanged += (_, _) =>
         {
             if (_suppressGeneralFontScale) return;
             SetGeneralFontScalePercent((int)GeneralFontScaleSlider.Value, fromSlider: true);
         };
-        TranslationThemeCombo.SelectionChanged += (_, _) => RefreshTranslationPreview();
-        HistoryThemeCombo.SelectionChanged += (_, _) => RefreshHistoryPreview();
+        HistoryThemeCombo.SelectionChanged += (_, _) =>
+        {
+            if (!_uiReady) return;
+            RefreshHistoryPreview();
+            PreviewHistoryPanelOpacity((int)HistoryOpacitySlider.Value);
+        };
+        TranslationThemeCombo.SelectionChanged += (_, _) =>
+        {
+            if (!_uiReady) return;
+            RefreshTranslationPreview();
+            PreviewTranslationPanelOpacity((int)TranslationOpacitySlider.Value);
+        };
 
         Loaded += (_, _) =>
         {
@@ -114,12 +129,11 @@ public partial class SettingsWindow : Window
     private void ShowNavPanel(int index)
     {
         PanelApi.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
-        PanelTranslation.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
-        PanelHistory.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
-        PanelHotkey.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
-        PanelGeneral.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
-        PanelPrivacy.Visibility = index == 5 ? Visibility.Visible : Visibility.Collapsed;
-        PanelAbout.Visibility = index == 6 ? Visibility.Visible : Visibility.Collapsed;
+        PanelFloatWindows.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+        PanelHotkey.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
+        PanelGeneral.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
+        PanelPrivacy.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
+        PanelAbout.Visibility = index == 5 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnOpenFeatureGuide(object sender, RoutedEventArgs e) =>
@@ -135,7 +149,7 @@ public partial class SettingsWindow : Window
         RebuildProviderCombo();
         RebuildAutoProviderList();
 
-        ProfileList.ItemsSource = _working.ApiProfiles.ToList();
+        ProfileList.ItemsSource = BuildProfileListItems();
         if (_working.ApiProfiles.Count > 0)
             ProfileList.SelectedIndex = 0;
 
@@ -175,28 +189,118 @@ public partial class SettingsWindow : Window
         RefreshTranslationPreview();
         RefreshHistoryPreview();
         OnProviderChanged(null!, null!);
+        UpdateKeyHelpUi();
     }
 
-    private void SetTranslationOpacityPercent(int percent, bool fromSlider = false)
+    private void OnProfileEditorChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateKeyHelpUi();
+        if (_selectedProfile is not null && sender == ProfileModelBox && !string.IsNullOrWhiteSpace(ProfileModelBox.Text))
+            ProfileNameBox.Text = ProfileModelBox.Text.Trim();
+    }
+
+    private void OnProfileListPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var scroll = FindVisualChild<ScrollViewer>(ProfileList);
+        if (scroll is null || scroll.ScrollableHeight <= 0)
+            return;
+
+        var atTop = scroll.VerticalOffset <= 0.5;
+        var atBottom = scroll.VerticalOffset >= scroll.ScrollableHeight - 0.5;
+        var scrollingUp = e.Delta > 0;
+        var scrollingDown = e.Delta < 0;
+
+        if ((scrollingUp && atTop) || (scrollingDown && atBottom))
+            return;
+
+        var next = scroll.VerticalOffset - e.Delta;
+        next = Math.Max(0, Math.Min(scroll.ScrollableHeight, next));
+        scroll.ScrollToVerticalOffset(next);
+        e.Handled = true;
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+                return match;
+            var nested = FindVisualChild<T>(child);
+            if (nested is not null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    private void SetTranslationOpacityPercent(int percent)
     {
         percent = Math.Clamp(percent, 0, 100);
         _suppressTranslationOpacity = true;
         TranslationOpacitySlider.Value = percent;
-        if (!fromSlider || TranslationOpacityBox.Text != percent.ToString())
-            TranslationOpacityBox.Text = percent.ToString();
+        TranslationOpacityBox.Text = percent.ToString();
         _suppressTranslationOpacity = false;
         RefreshTranslationPreview();
+        PreviewTranslationPanelOpacity(percent);
     }
 
-    private void SetHistoryOpacityPercent(int percent, bool fromSlider = false)
+    private void SetHistoryOpacityPercent(int percent)
     {
         percent = Math.Clamp(percent, 0, 100);
         _suppressHistoryOpacity = true;
         HistoryOpacitySlider.Value = percent;
-        if (!fromSlider || HistoryOpacityBox.Text != percent.ToString())
-            HistoryOpacityBox.Text = percent.ToString();
+        HistoryOpacityBox.Text = percent.ToString();
         _suppressHistoryOpacity = false;
         RefreshHistoryPreview();
+        PreviewHistoryPanelOpacity(percent);
+    }
+
+    private void PreviewTranslationPanelOpacity(int percent)
+    {
+        if (!_uiReady) return;
+        var options = BuildTranslationPanelPreviewOptions(percent);
+        TranslationResultWindow.Instance.ApplyAppearance(options);
+    }
+
+    private void PreviewHistoryPanelOpacity(int percent)
+    {
+        if (!_uiReady) return;
+        var options = BuildHistoryPanelPreviewOptions(percent);
+        HistoryPanelWindow.Instance.ApplyAppearance(options);
+    }
+
+    private PanelChromeOptions BuildTranslationPanelPreviewOptions(int percent) => new()
+    {
+        Opacity = PanelAppearance.FromPercent(percent),
+        Theme = TranslationThemeCombo.SelectedValue as string ?? "dark",
+        FontSizeScale = ConfigService.ClampFontSizeScale(GeneralFontScaleSlider.Value / 100.0),
+        FontFamilyName = GeneralFontFamilyCombo.SelectedValue as string ?? "",
+        ShowExtras = TranslationExtrasCheck.IsChecked == true
+    };
+
+    private PanelChromeOptions BuildHistoryPanelPreviewOptions(int percent) => new()
+    {
+        Opacity = PanelAppearance.FromPercent(percent),
+        Theme = HistoryThemeCombo.SelectedValue as string ?? "dark",
+        FontSizeScale = ConfigService.ClampFontSizeScale(GeneralFontScaleSlider.Value / 100.0),
+        FontFamilyName = GeneralFontFamilyCombo.SelectedValue as string ?? "",
+        ShowExtras = HistoryExtrasCheck.IsChecked == true
+    };
+
+    private void OnOpacityBoxPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter)
+            return;
+
+        if (ReferenceEquals(sender, TranslationOpacityBox))
+            OnTranslationOpacityBoxLostFocus(TranslationOpacityBox, e);
+        else if (ReferenceEquals(sender, HistoryOpacityBox))
+            OnHistoryOpacityBoxLostFocus(HistoryOpacityBox, e);
+        else if (ReferenceEquals(sender, GeneralFontScaleBox))
+            OnGeneralFontScaleBoxLostFocus(GeneralFontScaleBox, e);
+
+        e.Handled = true;
     }
 
     private void OnTranslationOpacityBoxLostFocus(object sender, RoutedEventArgs e)
@@ -217,12 +321,39 @@ public partial class SettingsWindow : Window
 
     private void SetGeneralFontScalePercent(int percent, bool fromSlider = false)
     {
-        percent = Math.Clamp(percent, 85, 135);
+        percent = Math.Clamp(percent, 90, 200);
         _suppressGeneralFontScale = true;
         GeneralFontScaleSlider.Value = percent;
         if (!fromSlider || GeneralFontScaleBox.Text != percent.ToString())
             GeneralFontScaleBox.Text = percent.ToString();
         _suppressGeneralFontScale = false;
+        PreviewFloatingFontScale();
+    }
+
+    private void PreviewFloatingFontScale()
+    {
+        if (!_uiReady) return;
+
+        var globalTheme = GeneralThemeCombo.SelectedValue as string ?? "dark";
+        var globalScale = ConfigService.ClampFontSizeScale(GeneralFontScaleSlider.Value / 100.0);
+        var globalFont = GeneralFontFamilyCombo.SelectedValue as string ?? "";
+
+        TranslationResultWindow.Instance.ApplyAppearance(new PanelChromeOptions
+        {
+            Opacity = PanelAppearance.FromPercent((int)TranslationOpacitySlider.Value),
+            Theme = TranslationThemeCombo.SelectedValue as string ?? globalTheme,
+            FontSizeScale = globalScale,
+            FontFamilyName = globalFont,
+            ShowExtras = TranslationExtrasCheck.IsChecked == true
+        });
+        HistoryPanelWindow.Instance.ApplyAppearance(new PanelChromeOptions
+        {
+            Opacity = PanelAppearance.FromPercent((int)HistoryOpacitySlider.Value),
+            Theme = HistoryThemeCombo.SelectedValue as string ?? globalTheme,
+            FontSizeScale = globalScale,
+            FontFamilyName = globalFont,
+            ShowExtras = HistoryExtrasCheck.IsChecked == true
+        });
     }
 
     private void OnGeneralFontScaleBoxLostFocus(object sender, RoutedEventArgs e)
@@ -269,7 +400,7 @@ public partial class SettingsWindow : Window
     private void OnGeneralFontFamilyChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_uiReady) return;
-        // 仅全局保存时写入；预览在译文/历史窗
+        PreviewFloatingFontScale();
     }
 
     private void UpdateHistoryStatusUi()
@@ -296,9 +427,12 @@ public partial class SettingsWindow : Window
     {
         if (preview is null) return;
         var colors = PanelAppearance.GetTheme(theme);
+        var bgAlpha = PanelAppearance.ToBackgroundAlpha(opacity);
         preview.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-            (byte)(opacity * 230), colors.Background.R, colors.Background.G, colors.Background.B));
-        preview.BorderBrush = new SolidColorBrush(colors.Border);
+            bgAlpha, colors.Background.R, colors.Background.G, colors.Background.B));
+        var borderAlpha = (byte)Math.Clamp((int)Math.Round(bgAlpha * 0.72), 0, 255);
+        preview.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+            borderAlpha, colors.Border.R, colors.Border.G, colors.Border.B));
         if (preview.Child is TextBlock tb)
             tb.Foreground = new SolidColorBrush(colors.Text);
     }
@@ -319,12 +453,19 @@ public partial class SettingsWindow : Window
     {
         var items = new List<ProviderItem> { new("auto", "Auto（多接口自动轮询）") };
         items.AddRange(_working.ApiProfiles.Select(p =>
-            new ProviderItem(p.Id, $"{p.Name} ({ProviderResolver.KindLabel(p.Kind)})")));
+            new ProviderItem(p.Id, ApiProfileDisplay.GetChannelLabel(p))));
         ProviderCombo.ItemsSource = items;
         ProviderCombo.DisplayMemberPath = "Label";
         ProviderCombo.SelectedValuePath = "Id";
         var selected = items.FirstOrDefault(i => i.Id == _working.Provider) ?? items[0];
         ProviderCombo.SelectedItem = selected;
+        UpdateActiveProviderStatus();
+    }
+
+    private void UpdateActiveProviderStatus()
+    {
+        if (!_uiReady || ActiveProviderStatusText is null) return;
+        ActiveProviderStatusText.Text = TranslationUsageTracker.FormatForSettings(_working);
     }
 
     private void RebuildAutoProviderList()
@@ -348,12 +489,28 @@ public partial class SettingsWindow : Window
     {
         var isAuto = ProviderCombo.SelectedItem is ProviderItem { Id: "auto" };
         AutoPanel.Visibility = isAuto ? Visibility.Visible : Visibility.Collapsed;
+        if (ProviderCombo.SelectedItem is ProviderItem item)
+            _working.Provider = item.Id;
+        UpdateActiveProviderStatus();
     }
+
+    private static List<ProfileListItemVm> BuildProfileListItems(AppConfig config) =>
+        config.ApiProfiles.Select(p => new ProfileListItemVm
+        {
+            Profile = p,
+            PrimaryLabel = ApiProfileDisplay.GetPrimaryLabel(p),
+            SecondaryLabel = ApiProfileDisplay.GetSecondaryLabel(p)
+        }).ToList();
+
+    private List<ProfileListItemVm> BuildProfileListItems() => BuildProfileListItems(_working);
+
+    private ApiProfile? GetSelectedProfile() =>
+        ProfileList.SelectedItem is ProfileListItemVm item ? item.Profile : null;
 
     private void OnProfileSelected(object sender, SelectionChangedEventArgs e)
     {
         FlushSelectedProfile();
-        if (ProfileList.SelectedItem is not ApiProfile profile)
+        if (GetSelectedProfile() is not ApiProfile profile)
         {
             _selectedProfile = null;
             return;
@@ -366,7 +523,9 @@ public partial class SettingsWindow : Window
         ProfileModelBox.Text = profile.Model;
         ProfileRegionBox.Text = profile.Region;
         ProfileKindCombo.SelectedValue = profile.Kind;
+        ProfileTypeText.Text = ApiProfileDisplay.GetProviderBrandLabel(profile);
         OnProfileKindChanged(null!, null!);
+        UpdateKeyHelpUi();
     }
 
     private void FlushSelectedProfile()
@@ -379,6 +538,14 @@ public partial class SettingsWindow : Window
         _selectedProfile.Region = ProfileRegionBox.Text.Trim();
         if (ProfileKindCombo.SelectedValue is string kind)
             _selectedProfile.Kind = kind;
+
+        if (!string.IsNullOrWhiteSpace(_selectedProfile.Model)
+            && (string.IsNullOrWhiteSpace(_selectedProfile.Name)
+                || _selectedProfile.Name.Contains("OpenAI", StringComparison.OrdinalIgnoreCase)
+                || _selectedProfile.Name.Contains("兼容", StringComparison.OrdinalIgnoreCase)))
+        {
+            _selectedProfile.Name = _selectedProfile.Model.Trim();
+        }
     }
 
     private void OnProfileKindChanged(object sender, SelectionChangedEventArgs e)
@@ -391,15 +558,29 @@ public partial class SettingsWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
         UpdateKindHintForKind(kind);
+        UpdateKeyHelpUi();
     }
 
     private void OnAddTemplateChanged(object sender, SelectionChangedEventArgs e) => UpdateKindHint();
 
-    private void UpdateKindHint() =>
-        UpdateKindHintForKind(AddTemplateCombo.SelectedValue as string ?? ApiProfileKinds.OpenAiCompatible);
+    private void UpdateKindHint()
+    {
+        if (AddTemplateCombo.SelectedItem is ApiProfileAddPresets.Preset preset)
+            KindHintText.Text = preset.Hint;
+        else
+            UpdateKindHintForKind(ApiProfileKinds.OpenAiCompatible);
+    }
 
     private void UpdateKindHintForKind(string kind)
     {
+        if (AddTemplateCombo.SelectedItem is ApiProfileAddPresets.Preset preset
+            && preset.Kind == kind
+            && ProfileKindCombo.SelectedValue as string == kind)
+        {
+            KindHintText.Text = preset.Hint;
+            return;
+        }
+
         var hint = ApiProfileKinds.Templates.FirstOrDefault(t => t.Kind == kind).Hint
                    ?? "请填写 API Key。";
         KindHintText.Text = hint;
@@ -407,48 +588,71 @@ public partial class SettingsWindow : Window
 
     private void OnAddProfile(object sender, RoutedEventArgs e)
     {
-        var kind = AddTemplateCombo.SelectedValue as string ?? ApiProfileKinds.OpenAiCompatible;
-        var profile = CreateProfileFromTemplate(kind);
+        var presetId = AddTemplateCombo.SelectedValue as string ?? ApiProfileAddPresets.All[0].Id;
+        var profile = CreateProfileFromPreset(presetId);
         _working.ApiProfiles.Add(profile);
         RefreshProfileList(profile);
     }
 
-    private static ApiProfile CreateProfileFromTemplate(string kind) => kind switch
+    private static ApiProfile CreateProfileFromPreset(string presetId)
     {
-        ApiProfileKinds.Microsoft => new ApiProfile
+        var preset = ApiProfileAddPresets.Get(presetId);
+        return preset.Kind switch
         {
-            Name = "微软翻译",
-            Kind = kind,
-            Region = "global"
-        },
-        ApiProfileKinds.Google => new ApiProfile
-        {
-            Name = "谷歌翻译",
-            Kind = kind
-        },
-        _ => new ApiProfile
-        {
-            Name = "OpenAI 兼容",
-            Kind = ApiProfileKinds.OpenAiCompatible,
-            BaseUrl = "https://api.deepseek.com",
-            Model = "deepseek-chat"
-        }
-    };
+            ApiProfileKinds.Microsoft => new ApiProfile
+            {
+                Name = preset.DefaultName,
+                Kind = preset.Kind,
+                Region = "global"
+            },
+            ApiProfileKinds.Google => new ApiProfile
+            {
+                Name = preset.DefaultName,
+                Kind = preset.Kind
+            },
+            _ => new ApiProfile
+            {
+                Name = preset.DefaultName,
+                Kind = ApiProfileKinds.OpenAiCompatible,
+                BaseUrl = preset.DefaultBaseUrl,
+                Model = preset.DefaultModel
+            }
+        };
+    }
 
     private void RefreshProfileList(ApiProfile? select = null)
     {
         FlushSelectedProfile();
+        var items = BuildProfileListItems();
         ProfileList.ItemsSource = null;
-        ProfileList.ItemsSource = _working.ApiProfiles.ToList();
+        ProfileList.ItemsSource = items;
         if (select is not null)
-            ProfileList.SelectedItem = select;
+            ProfileList.SelectedItem = items.FirstOrDefault(i => i.Profile.Id == select.Id);
         RebuildProviderCombo();
         RebuildAutoProviderList();
     }
 
-    private void OnDeleteProfile(object sender, RoutedEventArgs e)
+    private void OnDeleteProfileFromList(object sender, RoutedEventArgs e)
     {
-        if (ProfileList.SelectedItem is not ApiProfile profile) return;
+        e.Handled = true;
+        if (sender is System.Windows.Controls.Button { Tag: ApiProfile profile })
+            DeleteProfile(profile);
+    }
+
+    private void OnProfileContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (GetSelectedProfile() is null)
+            e.Handled = true;
+    }
+
+    private void OnDeleteProfileFromContext(object sender, RoutedEventArgs e)
+    {
+        if (GetSelectedProfile() is ApiProfile profile)
+            DeleteProfile(profile);
+    }
+
+    private void DeleteProfile(ApiProfile profile)
+    {
         if (!AppDialog.Confirm($"删除接口「{profile.Name}」？", owner: this))
             return;
 
@@ -456,22 +660,55 @@ public partial class SettingsWindow : Window
         _working.AutoProviderIds.Remove(profile.Id);
         if (_working.Provider == profile.Id)
             _working.Provider = "auto";
-        _selectedProfile = null;
+        if (ReferenceEquals(_selectedProfile, profile))
+            _selectedProfile = null;
         RefreshProfileList();
+    }
+
+    private void UpdateKeyHelpUi()
+    {
+        var kind = ProfileKindCombo.SelectedValue as string ?? ApiProfileKinds.OpenAiCompatible;
+        if (_selectedProfile is not null)
+            ProfileTypeText.Text = ApiProfileDisplay.GetProviderBrandLabel(_selectedProfile);
     }
 
     private void OnOpenProviderHelp(object sender, RoutedEventArgs e)
     {
         var kind = ProfileKindCombo.SelectedValue as string ?? ApiProfileKinds.OpenAiCompatible;
-        var url = kind switch
+        if (kind == ApiProfileKinds.OpenAiCompatible)
         {
-            ApiProfileKinds.Microsoft => "https://portal.azure.com/#create/Microsoft.CognitiveServicesTextTranslation",
-            ApiProfileKinds.Google => "https://console.cloud.google.com/apis/library/translate.googleapis.com",
-            _ => "https://dashscope.console.aliyun.com/apiKey"
-        };
+            if (ProviderKeyHelp.TryDetectOpenAiLink(ProfileUrlBox.Text, ProfileNameBox.Text) is { } detected)
+            {
+                OpenKeyHelpUrl(detected.Url, detected.Hint);
+                return;
+            }
+
+            if (FindResource("OpenAiKeyHelpMenu") is System.Windows.Controls.ContextMenu menu)
+            {
+                menu.PlacementTarget = KeyHelpButton;
+                menu.IsOpen = true;
+            }
+
+            return;
+        }
+
+        var link = ProviderKeyHelp.GetPrimaryLink(kind, ProfileUrlBox.Text, ProfileNameBox.Text);
+        OpenKeyHelpUrl(link.Url, link.Hint);
+    }
+
+    private void OnOpenKeyHelpLink(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.MenuItem { Tag: string url })
+            OpenKeyHelpUrl(url, null);
+    }
+
+    private void OpenKeyHelpUrl(string url, string? hint)
+    {
         try
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            ProviderKeyHelp.OpenUrl(url);
+            if (!string.IsNullOrWhiteSpace(hint))
+                KindHintText.Text = hint;
         }
         catch (Exception ex)
         {
@@ -497,17 +734,18 @@ public partial class SettingsWindow : Window
 
     private void OnExportHistory(object sender, RoutedEventArgs e)
     {
-        if (!_working.EnableHistory)
+        if (EnableHistoryCheck.IsChecked != true)
         {
-            AppDialog.Info("请先在「历史窗」页勾选「保存翻译到本地历史」。", owner: this);
+            AppDialog.Info("请先在下方勾选「保存翻译到本地历史」。", owner: this);
             return;
         }
 
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             Title = "导出翻译历史",
-            Filter = "JSON 文件|*.json",
-            FileName = $"xuanyi-history-{DateTime.Now:yyyyMMdd}.json"
+            Filter = "文本文件（可读）|*.txt|JSON 备份（可导入）|*.json",
+            FileName = $"xuanyi-history-{DateTime.Now:yyyyMMdd}.txt",
+            DefaultExt = ".txt"
         };
 
         if (dialog.ShowDialog() != true)
@@ -515,7 +753,10 @@ public partial class SettingsWindow : Window
 
         try
         {
-            _historyStore.ExportToJsonFile(dialog.FileName);
+            if (dialog.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                _historyStore.ExportToJsonFile(dialog.FileName);
+            else
+                _historyStore.ExportToTextFile(dialog.FileName);
             AppDialog.Info($"已导出到：{dialog.FileName}", owner: this);
         }
         catch (Exception ex)
@@ -526,19 +767,49 @@ public partial class SettingsWindow : Window
 
     private async void OnImportHistory(object sender, RoutedEventArgs e)
     {
-        if (!_working.EnableHistory)
+        if (EnableHistoryCheck.IsChecked != true)
         {
-            AppDialog.Info("请先在「历史窗」页勾选「保存翻译到本地历史」。", owner: this);
+            AppDialog.Info("请先在下方勾选「保存翻译到本地历史」。", owner: this);
             return;
         }
 
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "导入翻译历史",
-            Filter = "JSON 文件|*.json"
+            Filter = "文本或 JSON|*.txt;*.json|文本文件|*.txt|JSON 备份|*.json"
         };
 
         if (dialog.ShowDialog() != true)
+            return;
+
+        ImportParseSummary summary;
+        try
+        {
+            var path = dialog.FileName;
+            summary = await System.Threading.Tasks.Task.Run(() => HistoryStore.AnalyzeImportFile(path)).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            AppDialog.Warning($"无法读取文件：{ex.Message}", owner: this);
+            return;
+        }
+
+        if (summary.EntryCount == 0)
+        {
+            AppDialog.Warning(
+                "未识别到有效条目。\n\n请使用炫译导出的 TXT/JSON，或确保格式为：\n原文\n\n译文\n\n\n\n（下一条）",
+                owner: this);
+            return;
+        }
+
+        var preview = HistoryTextFormat.BuildPreviewText(summary.Pairs);
+        var mergeHint = summary.MaybeMergedSingleRecord
+            ? "\n\n⚠ 文件里有多段空行，但只识别到 1 条——可能多条被合并。建议用「导出」生成的 TXT 再导入。"
+            : "";
+        if (!AppDialog.Confirm(
+                $"识别到 {summary.EntryCount} 条记录，预览：\n\n{preview}{mergeHint}\n\n是否继续导入？",
+                AppBranding.SettingsTitle,
+                this))
             return;
 
         var mode = await AppDialog.AskImportHistoryModeAsync(AppBranding.SettingsTitle, this).ConfigureAwait(true);
@@ -557,7 +828,7 @@ public partial class SettingsWindow : Window
             var count = await System.Threading.Tasks.Task.Run(() =>
             {
                 using var store = new HistoryStore();
-                return store.ImportFromJsonFile(path, merge);
+                return store.ImportFromFile(path, merge);
             }).ConfigureAwait(true);
 
             AppDialog.Info($"已导入 {count} 条记录。", owner: this);
@@ -585,12 +856,15 @@ public partial class SettingsWindow : Window
             return;
         _historyStore.Clear();
         AppDialog.Info("历史记录已清空。", owner: this);
+        if (HistoryPanelWindow.IsPanelVisible)
+            HistoryPanelWindow.Instance.ReloadHistory(new HistoryStore());
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
         OnTranslationOpacityBoxLostFocus(this, e);
         OnHistoryOpacityBoxLostFocus(this, e);
+        OnGeneralFontScaleBoxLostFocus(this, e);
         FlushSelectedProfile();
 
         if (ProviderCombo.SelectedItem is ProviderItem item)
@@ -619,9 +893,20 @@ public partial class SettingsWindow : Window
         _working.TranslateOnSelection = TranslateOnSelectionCheck.IsChecked == true;
         _working.TranslateOnCopy = TranslateOnCopyCheck.IsChecked == true;
         _working.EnableScreenshotRegionHotkey = EnableScreenshotHotkeyCheck.IsChecked == true;
-        _working.ScreenshotRegionHotkey = string.IsNullOrWhiteSpace(ScreenshotHotkeyBox.Text)
-            ? "Ctrl+Shift+S"
-            : ScreenshotHotkeyBox.Text.Trim();
+        var screenshotHotkey = ScreenshotHotkeyBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(screenshotHotkey))
+            screenshotHotkey = "Ctrl+Shift+S";
+        try
+        {
+            HotkeyParser.Parse(screenshotHotkey);
+            _working.ScreenshotRegionHotkey = screenshotHotkey;
+        }
+        catch (Exception ex)
+        {
+            AppDialog.Warning($"截屏热键无效：{ex.Message}", owner: this);
+            return;
+        }
+
         if (TranslationDirectionCombo.SelectedValue is string dir)
             _working.TranslationDirection = dir;
 
@@ -646,26 +931,48 @@ public partial class SettingsWindow : Window
 
         var globalTheme = GeneralThemeCombo.SelectedValue as string ?? "dark";
         var globalScale = ConfigService.ClampFontSizeScale(GeneralFontScaleSlider.Value / 100.0);
-
-        _working.TranslationPanelUi.Opacity = PanelAppearance.FromPercent((int)TranslationOpacitySlider.Value);
-        _working.TranslationPanelUi.Theme = TranslationThemeCombo.SelectedValue as string ?? globalTheme;
         var globalFont = GeneralFontFamilyCombo.SelectedValue as string ?? "";
-        _working.TranslationPanelUi.FontSizeScale = globalScale;
-        _working.TranslationPanelUi.FontFamilyName = globalFont;
-        _working.TranslationPanelUi.ShowExtras = TranslationExtrasCheck.IsChecked == true;
-        _working.HistoryPanelUi.Opacity = PanelAppearance.FromPercent((int)HistoryOpacitySlider.Value);
-        _working.HistoryPanelUi.Theme = HistoryThemeCombo.SelectedValue as string ?? globalTheme;
-        _working.HistoryPanelUi.FontSizeScale = globalScale;
-        _working.HistoryPanelUi.FontFamilyName = globalFont;
+
+        _working.TranslationPanelUi = new PanelChromeOptions
+        {
+            Opacity = PanelAppearance.FromPercent((int)TranslationOpacitySlider.Value),
+            Theme = TranslationThemeCombo.SelectedValue as string ?? globalTheme,
+            FontSizeScale = globalScale,
+            FontFamilyName = globalFont,
+            ShowExtras = TranslationExtrasCheck.IsChecked == true
+        };
+        _working.HistoryPanelUi = new PanelChromeOptions
+        {
+            Opacity = PanelAppearance.FromPercent((int)HistoryOpacitySlider.Value),
+            Theme = HistoryThemeCombo.SelectedValue as string ?? globalTheme,
+            FontSizeScale = globalScale,
+            FontFamilyName = globalFont,
+            ShowExtras = HistoryExtrasCheck.IsChecked == true
+        };
 
         _configService.Save(_working);
-        Saved?.Invoke(this, EventArgs.Empty);
+        ApplyFloatingWindowSettings(_working);
+        UpdateActiveProviderStatus();
+        Saved?.Invoke(this, CloneConfig(_working));
 
         SaveHintText.Text = "已保存，配置已生效";
         SaveHintText.Visibility = Visibility.Visible;
 
         if (CloseAfterSaveCheck.IsChecked == true)
             Close();
+    }
+
+    private static AppConfig CloneConfig(AppConfig source)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(source);
+        return System.Text.Json.JsonSerializer.Deserialize<AppConfig>(json) ?? source;
+    }
+
+    private static void ApplyFloatingWindowSettings(AppConfig config)
+    {
+        TranslationResultWindow.ApplyBehaviorFromConfig(config);
+        TranslationResultWindow.Instance.ApplyAppearance(config.TranslationPanelUi);
+        HistoryPanelWindow.Instance.ApplyAppearance(config.HistoryPanelUi);
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
@@ -680,21 +987,41 @@ public partial class SettingsWindow : Window
 
     private void OnHotkeyPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (!_recordingHotkey) return;
+        if (!_recordingHotkey && !_recordingScreenshotHotkey) return;
         e.Handled = true;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (!HotkeyCapture.TryFormat(Keyboard.Modifiers, key, out var hotkey))
             return;
 
-        HotkeyBox.Text = hotkey;
-        _recordingHotkey = false;
-        HotkeyHintText.Text = "录制：点击「按下录制」后，在键盘上按下组合键（需含 Ctrl/Shift/Alt 之一）";
+        if (_recordingScreenshotHotkey)
+        {
+            ScreenshotHotkeyBox.Text = hotkey;
+            _recordingScreenshotHotkey = false;
+        }
+        else
+        {
+            HotkeyBox.Text = hotkey;
+            _recordingHotkey = false;
+        }
+
         PreviewKeyDown -= OnHotkeyPreviewKeyDown;
+        HotkeyHintText.Text = "录制：点击「按下录制」后，在键盘上按下组合键（需含 Ctrl/Shift/Alt 之一）";
+    }
+
+    private void OnRecordScreenshotHotkey(object sender, RoutedEventArgs e)
+    {
+        _recordingScreenshotHotkey = true;
+        HotkeyHintText.Text = "正在录制截屏热键：请按下组合键（需含 Ctrl / Shift / Alt 之一）…";
+        PreviewKeyDown += OnHotkeyPreviewKeyDown;
+        Focus();
     }
 
     private void OnResetHotkey(object sender, RoutedEventArgs e) =>
         HotkeyBox.Text = HotkeyParser.DefaultHotkey;
+
+    private void OnResetScreenshotHotkey(object sender, RoutedEventArgs e) =>
+        ScreenshotHotkeyBox.Text = "Ctrl+Shift+S";
 
     private async void OnScreenshotRegionNow(object sender, RoutedEventArgs e)
     {
@@ -749,4 +1076,11 @@ public partial class SettingsWindow : Window
     private sealed record DirectionOption(string Id, string Label);
     private sealed record ProviderItem(string Id, string Label);
     private sealed record TemplateItem(string Kind, string Label);
+
+    private sealed class ProfileListItemVm
+    {
+        public required ApiProfile Profile { get; init; }
+        public required string PrimaryLabel { get; init; }
+        public required string SecondaryLabel { get; init; }
+    }
 }

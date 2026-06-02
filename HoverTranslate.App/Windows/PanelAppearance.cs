@@ -51,12 +51,21 @@ internal static class PanelAppearance
 
     public static void ApplyPanel(Window window, Border root, PanelChromeOptions ui, string? theme)
     {
-        window.Opacity = ClampOpacity(ui.Opacity);
+        window.Opacity = 1.0;
+        window.Background = System.Windows.Media.Brushes.Transparent;
+        var opacity = ClampOpacity(ui.Opacity);
         var colors = GetTheme(theme);
+        var bgAlpha = ToBackgroundAlpha(opacity);
         root.Background = new SolidColorBrush(
-            System.Windows.Media.Color.FromArgb(230, colors.Background.R, colors.Background.G, colors.Background.B));
-        root.BorderBrush = new SolidColorBrush(colors.Border);
+            System.Windows.Media.Color.FromArgb(bgAlpha, colors.Background.R, colors.Background.G, colors.Background.B));
+        var borderAlpha = (byte)Math.Clamp((int)Math.Round(bgAlpha * 0.72), 0, 255);
+        root.BorderBrush = new SolidColorBrush(
+            System.Windows.Media.Color.FromArgb(borderAlpha, colors.Border.R, colors.Border.G, colors.Border.B));
+        root.Opacity = 1.0;
     }
+
+    public static byte ToBackgroundAlpha(double opacity) =>
+        (byte)Math.Clamp((int)Math.Round(ClampOpacity(opacity) * 255), 0, 255);
 
     private static System.Windows.Media.Color Parse(string hex) =>
         (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex)!;

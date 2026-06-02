@@ -2,6 +2,7 @@ namespace HoverTranslate.App.Windows;
 
 internal static class TranslationCopyText
 {
+    /// <summary>与译文窗一致：原文在上，译文在下。</summary>
     public static string Combine(string? source, string? target)
     {
         source = source?.Trim() ?? "";
@@ -11,6 +12,6 @@ internal static class TranslationCopyText
         if (string.IsNullOrEmpty(source) || string.Equals(source, target, StringComparison.Ordinal))
             return target;
 
-        return $"{target}{Environment.NewLine}{Environment.NewLine}{source}";
+        return $"{source}{Environment.NewLine}{Environment.NewLine}{target}";
     }
 }

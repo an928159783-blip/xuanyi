@@ -1,0 +1,46 @@
+---
+description: 炫译翻译展示路径与关窗规则，改 Coordinator/Hover 前必读
+globs:
+  - HoverTranslate.App/Services/TranslationCoordinator.cs
+  - HoverTranslate.App/Services/HoverTranslateService.cs
+  - HoverTranslate.App/Windows/TranslationResultWindow.xaml.cs
+  - HoverTranslate.App/Windows/HistoryPanelWindow.xaml.cs
+  - HoverTranslate.App/Windows/OverlayWindow.xaml.cs
+  - HoverTranslate.App/App.xaml.cs
+alwaysApply: false
+---
+
+# 翻译展示路径
+
+## 工作流
+- **产品行为变更**：先写方案与影响面，等用户确认后再改代码、再 publish
+- 本规则约束 AI，**不**改变已安装 exe 行为
+
+## 三类触发
+- **被动自动**：复制、选中、悬停 → 受 suppress 约束
+- **主动明确**：热键、截屏 → 可打开大译文窗，**不清除** suppress
+- **托盘 OpenFromTray** → 唯一 `clearSuppress:true` 的入口
+
+## suppress 语义（关窗 = 暂不需要翻译）
+- 勾选「手动关闭后…」+ 用户关译文窗 → 会话内 `SuppressAutoShowUntilManualOpen=true`
+- suppress 期间：**复制/选中/悬停完全不翻译、不弹大窗、不弹浮层**
+- suppress 期间：热键仍可翻译并开大窗
+- 取消勾选设置 → 保存后立即 `suppress=false`
+
+## 浮窗生命周期
+- 历史窗/译文窗：`Closing` 取消并 `HidePanel`；任务栏 × 不得 `Close` 后复用单例
+- `AllowPanelWindowsToClose` 仅在应用退出时为 true
+
+## 禁止
+- `EnsureVisible()` 无条件 `SuppressAutoShowUntilManualOpen = false`
+- 复制/选中使用 `forceShowTranslation:true` 强弹大窗
+- suppress 期间被动路径仍调 API 或弹 `OverlayWindow`
+- `OnManualTranslateStarting` 设置 15s `_pausedUntil`
+
+## 改完必回归（6 项）
+1. 复制 → 大窗（未 suppress）或完全无反应（suppress）
+2. 选中松手 → 同上
+3. 悬停 → 大窗/浮层（未 suppress）或完全无反应（suppress）
+4. 关窗+勾选 suppress → 复制/悬停/选中均无 UI、无 API
+5. 热键 → 大窗（suppress 时仍可）
+6. 托盘打开 → 被动自动翻译恢复；历史窗关后再开不报错

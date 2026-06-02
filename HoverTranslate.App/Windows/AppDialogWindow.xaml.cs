@@ -37,6 +37,9 @@ public partial class AppDialogWindow : Window
             var primary = ButtonPanel.Children.OfType<WpfButton>().LastOrDefault();
             primary?.Focus();
         };
+        Services.AppDialogTracker.RegisterOpened();
+        Closed += (_, _) => Services.AppDialogTracker.RegisterClosed();
+
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape)

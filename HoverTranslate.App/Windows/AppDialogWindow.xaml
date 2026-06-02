@@ -50,8 +50,9 @@
         </DockPanel>
       </Border>
 
-      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="280" Padding="20,16,20,8">
-        <TextBlock x:Name="MessageText" Style="{StaticResource SettingsBodyText}" TextWrapping="Wrap" LineHeight="22"/>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="320" Padding="20,16,20,8">
+        <TextBlock x:Name="MessageText" Style="{StaticResource SettingsBodyText}" TextWrapping="Wrap"
+                   LineHeight="22" MaxWidth="420"/>
       </ScrollViewer>
 
       <Border Grid.Row="2" Background="#FAFBFC" BorderBrush="#E8EDF5" BorderThickness="0,1,0,0"

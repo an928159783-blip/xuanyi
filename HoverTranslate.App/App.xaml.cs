@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using HoverTranslate.App.Services;
 using HoverTranslate.App.Windows;
+using HoverTranslate.Core.Models;
 using HoverTranslate.Core.Services;
 
 namespace HoverTranslate.App;
@@ -48,6 +49,7 @@ public partial class App : System.Windows.Application
             _configService = new ConfigService();
             _configService.EnsureConfigExists();
             var config = _configService.Load();
+            SettingsWindowHost.RegisterSavedHandler(OnSettingsSaved);
 
             _coordinator = new TranslationCoordinator(_configService);
             _hover = new HoverTranslateService(_coordinator, _configService);
@@ -79,6 +81,7 @@ public partial class App : System.Windows.Application
 
             ApplyClipboardTranslate(config);
             ApplyHoverFromSettings(config.EnableHover || config.TranslateOnSelection);
+            HoverGuard.RegisterPauseHandler(ms => _hover?.PauseFor(ms));
 
             var hk = _hotkey.CurrentHotkey;
             Dispatcher.BeginInvoke(() =>
@@ -135,7 +138,8 @@ public partial class App : System.Windows.Application
     {
         if (_coordinator is null) return;
 
-        _clipboardTranslate?.PauseFor(4000);
+        if (string.IsNullOrWhiteSpace(knownText))
+            _clipboardTranslate?.PauseFor(1500);
 
         Current.Dispatcher.BeginInvoke(() =>
         {
@@ -152,7 +156,9 @@ public partial class App : System.Windows.Application
                 }
             }
 
-            _ = _coordinator.TranslateFromSelectionOrClipboardAsync(captured);
+            _ = _coordinator.TranslateFromSelectionOrClipboardAsync(
+                captured,
+                fromHotkey: string.IsNullOrWhiteSpace(knownText));
         }, DispatcherPriority.Normal);
     }
 
@@ -170,10 +176,15 @@ public partial class App : System.Windows.Application
         _clipboardTranslate?.Dispose();
         _clipboardTranslate = null;
 
-        if (!config.TranslateOnCopy || _configService is null) return;
+        if (!config.TranslateOnCopy || _configService is null)
+        {
+            ClipboardGuard.RegisterPauseHandler(_ => { });
+            return;
+        }
 
         _clipboardTranslate = new ClipboardTranslateService();
         _clipboardTranslate.Start(_configService, text => OnTranslateRequested(text));
+        ClipboardGuard.RegisterPauseHandler(ms => _clipboardTranslate.PauseFor(ms));
     }
 
     public Task TriggerScreenshotRegionTranslateAsync() =>
@@ -193,31 +204,32 @@ public partial class App : System.Windows.Application
         }
     });
 
-    private void OnSettingsSaved()
+    private void OnSettingsSaved(AppConfig saved)
     {
-        var config = _configService!.Load();
-        ApplyHoverFromSettings(config.EnableHover || config.TranslateOnSelection);
+        ApplyHoverFromSettings(saved.EnableHover || saved.TranslateOnSelection);
 
         try
         {
-            _hotkey?.ApplyConfig(config);
+            _hotkey?.ApplyConfig(saved);
         }
         catch (Exception ex)
         {
             ShowUiError("热键注册失败", ex);
         }
 
-        ApplyClipboardTranslate(config);
+        ApplyClipboardTranslate(saved);
         _tray?.RefreshConfig();
 
-        if (TranslationResultWindow.IsPanelVisible)
-            TranslationResultWindow.Instance.ApplyAppearance(config.TranslationPanelUi);
-        if (HistoryPanelWindow.IsPanelVisible)
-            HistoryPanelWindow.Instance.ApplyAppearance(config.HistoryPanelUi);
+        TranslationResultWindow.ApplyBehaviorFromConfig(saved);
+        TranslationResultWindow.Instance.ApplyAppearance(saved.TranslationPanelUi);
+        HistoryPanelWindow.Instance.ApplyAppearance(saved.HistoryPanelUi);
 
-        var modeHint = config.TranslateOnSelection
+        if (HistoryPanelWindow.IsPanelVisible)
+            HistoryPanelWindow.Instance.ReloadHistory(new HistoryStore());
+
+        var modeHint = saved.TranslateOnSelection
             ? "选中即译已开启。"
-            : config.EnableHover
+            : saved.EnableHover
                 ? "悬停翻译已开启。"
                 : "仍可用热键/复制翻译。";
         _tray?.ShowBalloon(AppBranding.DisplayName, $"设置已保存。{modeHint}");
@@ -233,17 +245,23 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            TranslationResultWindow.EnsureVisible();
+            TranslationResultWindow.OpenFromTray();
             TranslationResultWindow.Instance.ApplyAppearance(_configService!.Load().TranslationPanelUi);
         }
         catch (Exception ex) { ShowUiError("打开译文框失败", ex); }
     });
 
-    private static void ShowUiError(string title, Exception ex) =>
-        AppDialog.Warning($"{title}：{ex.Message}\n\n{ex}", AppBranding.DisplayName);
+    private static void ShowUiError(string title, Exception ex)
+    {
+        StartupDiagnostics.LogException(title, ex);
+        AppDialog.Warning(
+            $"{title}：{ex.Message}\n\n详情已写入日志：\n{StartupDiagnostics.LogPath}",
+            AppBranding.DisplayName);
+    }
 
     private void OnExit()
     {
+        FloatingPanelWindowActions.AllowPanelWindowsToClose = true;
         _clipboardTranslate?.Dispose();
         _hover?.Dispose();
         _hotkey?.Dispose();

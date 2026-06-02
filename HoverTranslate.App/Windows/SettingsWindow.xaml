@@ -33,6 +33,10 @@
       <Style TargetType="TextBox" BasedOn="{StaticResource FrostTextBox}"/>
       <Style TargetType="PasswordBox" BasedOn="{StaticResource FrostPasswordBox}"/>
       <Style TargetType="ComboBox" BasedOn="{StaticResource FrostComboBox}"/>
+      <ContextMenu x:Key="OpenAiKeyHelpMenu">
+        <MenuItem Header="DeepSeek 获取密钥" Tag="https://platform.deepseek.com/api_keys" Click="OnOpenKeyHelpLink"/>
+        <MenuItem Header="阿里云百炼 获取密钥" Tag="https://dashscope.console.aliyun.com/apiKey" Click="OnOpenKeyHelpLink"/>
+      </ContextMenu>
       <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource FrostPrimaryButton}"/>
       <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource FrostDangerButton}"/>
       <Style x:Key="SectionBorder" TargetType="Border" BasedOn="{StaticResource FrostSectionBorder}"/>
@@ -57,8 +61,7 @@
                  ItemContainerStyle="{StaticResource NavListItem}"
                  SelectionChanged="OnNavChanged" DockPanel.Dock="Top">
           <ListBoxItem Content="翻译接口" IsSelected="True"/>
-          <ListBoxItem Content="译文窗"/>
-          <ListBoxItem Content="历史窗"/>
+          <ListBoxItem Content="浮窗"/>
           <ListBoxItem Content="热键与悬停"/>
           <ListBoxItem Content="通用"/>
           <ListBoxItem Content="隐私"/>
@@ -69,7 +72,7 @@
 
     <!-- 右侧内容 -->
     <Grid Grid.Column="1" Grid.Row="0" Background="White">
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,16,28,20">
+      <ScrollViewer x:Name="SettingsPageScroll" VerticalScrollBarVisibility="Auto" Padding="28,16,28,20">
         <Grid>
           <!-- 翻译接口 -->
           <StackPanel x:Name="PanelApi" Visibility="Visible">
@@ -97,7 +100,9 @@
                             DisplayMemberPath="Label" SelectedValuePath="Id"
                             SelectionChanged="OnProviderChanged"/>
                 </Grid>
-                <TextBlock Text="Auto 将按顺序尝试已勾选且已填 Key 的接口。" Style="{StaticResource SettingSmallHint}" Margin="0,0,0,8"/>
+                <TextBlock Text="Auto 将按顺序尝试已勾选且已填 Key 的接口。" Style="{StaticResource SettingSmallHint}" Margin="0,0,0,4"/>
+                <TextBlock x:Name="ActiveProviderStatusText" Style="{StaticResource SettingSmallHint}" Margin="0,0,0,8"
+                           TextWrapping="Wrap"/>
                 <StackPanel x:Name="AutoPanel" Visibility="Collapsed">
                   <StackPanel x:Name="AutoProviderPanel"/>
                 </StackPanel>
@@ -121,15 +126,59 @@
                   </StackPanel>
                 </Grid>
                 <TextBlock x:Name="KindHintText" Style="{StaticResource SettingSmallHint}" Margin="0,0,0,8"/>
-                <ListBox x:Name="ProfileList" Height="88" Margin="0,0,0,8"
-                         Style="{StaticResource FrostListBox}"
-                         ItemContainerStyle="{StaticResource FrostListBoxItem}"
-                         DisplayMemberPath="Name"
-                         SelectionChanged="OnProfileSelected"/>
+                <Border x:Name="ProfileListHost" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1"
+                        BorderThickness="1" CornerRadius="10"
+                        PreviewMouseWheel="OnProfileListPreviewMouseWheel">
+              <ListBox x:Name="ProfileList" MaxHeight="240"
+                       Style="{StaticResource FrostListBox}"
+                       Background="Transparent" BorderThickness="0"
+                       ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       ItemContainerStyle="{StaticResource FrostListBoxItem}"
+                       SelectionChanged="OnProfileSelected"
+                       ContextMenuOpening="OnProfileContextMenuOpening"
+                       PreviewMouseWheel="OnProfileListPreviewMouseWheel">
+                  <ListBox.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="删除此接口" Click="OnDeleteProfileFromContext"/>
+                    </ContextMenu>
+                  </ListBox.ContextMenu>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,2">
+                          <TextBlock Text="{Binding PrimaryLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding SecondaryLabel}" FontSize="11" Opacity="0.65" TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                  <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                  </Trigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="×" Width="28" Height="28" Padding="0" Margin="4,0,0,0"
+                                ToolTip="删除此接口" Tag="{Binding Profile}" Click="OnDeleteProfileFromList"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                FontSize="16" Foreground="#64748B"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+              </ListBox>
+                </Border>
                 <TextBlock Text="显示名称" Style="{StaticResource SettingFieldLabel}"/>
-                <TextBox x:Name="ProfileNameBox" Margin="0,0,0,6"/>
+                <TextBox x:Name="ProfileNameBox" Margin="0,0,0,6" TextChanged="OnProfileEditorChanged"/>
                 <TextBlock Text="接口类型" Style="{StaticResource SettingFieldLabel}"/>
-                <ComboBox x:Name="ProfileKindCombo" Margin="0,0,0,6" SelectionChanged="OnProfileKindChanged"/>
+                <TextBlock x:Name="ProfileTypeText" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="#1E293B"/>
+                <ComboBox x:Name="ProfileKindCombo" Margin="0,0,0,6" SelectionChanged="OnProfileKindChanged" Visibility="Collapsed"/>
                 <TextBlock Text="API Key" Style="{StaticResource SettingFieldLabel}"/>
                 <PasswordBox x:Name="ProfileKeyBox" Margin="0,0,0,6"/>
                 <StackPanel x:Name="ProfileRegionPanel" Visibility="Collapsed">
@@ -138,23 +187,57 @@
                 </StackPanel>
                 <StackPanel x:Name="ProfileOpenAiPanel">
                   <TextBlock Text="Base URL" Style="{StaticResource SettingFieldLabel}"/>
-                  <TextBox x:Name="ProfileUrlBox" Margin="0,0,0,6"/>
+                  <TextBox x:Name="ProfileUrlBox" Margin="0,0,0,6" TextChanged="OnProfileEditorChanged"/>
                   <TextBlock Text="模型名" Style="{StaticResource SettingFieldLabel}"/>
-                  <TextBox x:Name="ProfileModelBox" Margin="0,0,0,6"/>
+                  <TextBox x:Name="ProfileModelBox" Margin="0,0,0,6" TextChanged="OnProfileEditorChanged"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                  <Button Content="获取 Key 说明" Margin="0,0,8,0" Click="OnOpenProviderHelp"/>
-                  <Button Content="删除所选" Style="{StaticResource DangerButton}" Click="OnDeleteProfile"/>
+                  <Button x:Name="KeyHelpButton" Content="获取 API Key ▾" Click="OnOpenProviderHelp"/>
                 </StackPanel>
               </StackPanel>
             </Border>
           </StackPanel>
 
-          <!-- 译文窗 -->
-          <StackPanel x:Name="PanelTranslation" Visibility="Collapsed">
-            <TextBlock Text="译文窗" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,16"/>
-            <Border Style="{StaticResource SectionBorder}">
+          <!-- 浮窗（译文 + 历史） -->
+          <StackPanel x:Name="PanelFloatWindows" Visibility="Collapsed">
+            <TextBlock Text="浮窗" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,4"/>
+            <TextBlock Style="{StaticResource SettingHintText}" Margin="0,0,0,16"
+                       Text="译文窗与历史窗的外观、行为及历史数据管理。"/>
+
+            <TextBlock Text="译文窗" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource SectionBorder}" Margin="0,0,0,12">
               <StackPanel>
+                <TextBlock Text="显示与关闭" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,4"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,0,0,8" TextWrapping="Wrap"
+                           Text="控制何时弹出译文窗，以及手动关闭后的行为。"/>
+                <CheckBox x:Name="ShowPanelOnTranslateCheck" Margin="0,0,0,6" IsChecked="True">
+                  <TextBlock TextWrapping="Wrap"
+                             Text="热键 / 复制 / 选中翻译时在译文窗显示结果"/>
+                </CheckBox>
+                <CheckBox x:Name="ShowPanelOnHoverCheck" Margin="0,0,0,6">
+                  <TextBlock TextWrapping="Wrap"
+                             Text="悬停翻译时在译文窗显示结果（关闭时用右下角轻量浮层）"/>
+                </CheckBox>
+                <CheckBox x:Name="SuppressPanelAfterCloseCheck"
+                          Margin="0,0,0,2" IsChecked="True">
+                  <TextBlock TextWrapping="Wrap"
+                             Text="手动关闭译文窗后，复制/选中/悬停不再自动翻译（热键仍可翻译；托盘「打开译文窗」恢复自动翻译）"/>
+                </CheckBox>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="16,0,0,6" TextWrapping="Wrap"
+                           Text="需先手动关闭一次译文窗后生效；取消勾选或托盘打开译文窗后立即恢复。"/>
+                <Grid Style="{StaticResource SettingFormRow}" Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
+                    <TextBlock Text="自动关闭 (秒，0=不关闭)" Style="{StaticResource SettingToolbarLabel}"/>
+                  </Border>
+                  <TextBox x:Name="OverlayTimeoutBox" Grid.Column="2" Width="100"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="外观" Style="{StaticResource SettingRowLabel}" Margin="0,16,0,4"/>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,12">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -168,11 +251,16 @@
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             DisplayMemberPath="Label" SelectedValuePath="Id"/>
                 </Grid>
-                <TextBlock Text="窗口透明度" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,8"/>
+                <TextBlock Text="不透明度" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,4"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,0,0,8"
+                           Text="数值越大窗口越实（越不透明）；0% 几乎全透明。"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                  <Slider x:Name="TranslationOpacitySlider" Minimum="0" Maximum="100" Width="220"/>
-                  <TextBox x:Name="TranslationOpacityBox" Width="44" Margin="8,0,0,0" VerticalAlignment="Center"
-                           MaxLength="3" LostFocus="OnTranslationOpacityBoxLostFocus"/>
+                  <Slider x:Name="TranslationOpacitySlider" Minimum="0" Maximum="100" Width="220"
+                          IsSnapToTickEnabled="True" TickFrequency="1"/>
+                  <TextBox x:Name="TranslationOpacityBox" Width="52" Margin="8,0,0,0" VerticalAlignment="Center"
+                           Style="{StaticResource FrostCompactTextBox}" MaxLength="3"
+                           LostFocus="OnTranslationOpacityBoxLostFocus"
+                           PreviewKeyDown="OnOpacityBoxPreviewKeyDown"/>
                   <TextBlock Text="%" Style="{StaticResource SettingRowLabel}" Margin="4,0,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -184,33 +272,12 @@
                 <Border x:Name="TranslationPreview" Height="56" CornerRadius="10" BorderThickness="1" Margin="0,0,0,12">
                   <TextBlock Text="预览" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
-                <CheckBox x:Name="TranslationExtrasCheck" Content="显示附加项（状态栏）"/>
-                <CheckBox x:Name="ShowPanelOnTranslateCheck" Content="热键 / 复制 / 选中翻译时在译文窗显示结果"
-                          Margin="0,12,0,6" IsChecked="True"/>
-                <CheckBox x:Name="ShowPanelOnHoverCheck" Content="悬停翻译时在译文窗显示结果（默认关闭）"
-                          Margin="0,0,0,6"/>
-                <CheckBox x:Name="SuppressPanelAfterCloseCheck"
-                          Content="手动关闭译文窗后，不再自动弹出（直至再次从托盘打开译文窗）"
-                          Margin="0,0,0,6" IsChecked="True"/>
-                <Grid Style="{StaticResource SettingFormRow}" Margin="0,14,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*" MinWidth="16"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
-                    <TextBlock Text="自动关闭 (秒，0=不关闭)" Style="{StaticResource SettingToolbarLabel}"/>
-                  </Border>
-                  <TextBox x:Name="OverlayTimeoutBox" Grid.Column="2" Width="100"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
+                <CheckBox x:Name="TranslationExtrasCheck" Content="显示附加项（状态栏）"
+                          ToolTip="在译文窗底部显示原文预览、翻译状态（如「翻译中…」「翻译完成 · 接口名」）等附加信息；关闭后仅保留译文与复制按钮。"/>
               </StackPanel>
             </Border>
-          </StackPanel>
 
-          <!-- 历史窗 -->
-          <StackPanel x:Name="PanelHistory" Visibility="Collapsed">
-            <TextBlock Text="历史窗" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,16"/>
+            <TextBlock Text="历史窗" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,8"/>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,12">
@@ -226,11 +293,16 @@
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             DisplayMemberPath="Label" SelectedValuePath="Id"/>
                 </Grid>
-                <TextBlock Text="窗口透明度" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,8"/>
+                <TextBlock Text="不透明度" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,4"/>
+                <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,0,0,8"
+                           Text="数值越大窗口越实（越不透明）；0% 几乎全透明。"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                  <Slider x:Name="HistoryOpacitySlider" Minimum="0" Maximum="100" Width="220"/>
-                  <TextBox x:Name="HistoryOpacityBox" Width="44" Margin="8,0,0,0" VerticalAlignment="Center"
-                           MaxLength="3" LostFocus="OnHistoryOpacityBoxLostFocus"/>
+                  <Slider x:Name="HistoryOpacitySlider" Minimum="0" Maximum="100" Width="220"
+                          IsSnapToTickEnabled="True" TickFrequency="1"/>
+                  <TextBox x:Name="HistoryOpacityBox" Width="52" Margin="8,0,0,0" VerticalAlignment="Center"
+                           Style="{StaticResource FrostCompactTextBox}" MaxLength="3"
+                           LostFocus="OnHistoryOpacityBoxLostFocus"
+                           PreviewKeyDown="OnOpacityBoxPreviewKeyDown"/>
                   <TextBlock Text="%" Style="{StaticResource SettingRowLabel}" Margin="4,0,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -242,14 +314,15 @@
                 <Border x:Name="HistoryPreview" Height="56" CornerRadius="10" BorderThickness="1" Margin="0,0,0,12">
                   <TextBlock Text="预览" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
-                <CheckBox x:Name="HistoryExtrasCheck" Content="显示条数与「打开」按钮（「清空历史」始终显示）"/>
+                <CheckBox x:Name="HistoryExtrasCheck" Content="显示历史条数（复制请右键）"/>
                 <CheckBox x:Name="EnableHistoryCheck" Content="保存翻译到本地历史（SQLite，仅存本机）"
                           Margin="0,12,0,0" Checked="OnHistoryToggleChanged" Unchecked="OnHistoryToggleChanged"/>
                 <TextBlock Style="{StaticResource SettingSmallHint}" Margin="0,6,0,0" TextWrapping="Wrap"
-                           Text="关闭后不再写入历史。导出备份见下方按钮；清空见「隐私」。"/>
+                           Text="导入/导出/清空仅在此处操作；历史浮窗底部仅保留「导出」快捷入口。"/>
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                  <Button Content="导出历史 (JSON)" Margin="0,0,8,0" Click="OnExportHistory"/>
-                  <Button Content="导入历史 (JSON)" Click="OnImportHistory"/>
+                  <Button Content="导出历史" Margin="0,0,8,0" Click="OnExportHistory" ToolTip="TXT 可读可导入；JSON 为完整备份"/>
+                  <Button Content="导入历史" Margin="0,0,8,0" Click="OnImportHistory" ToolTip="支持 TXT 与 JSON，导入前预览"/>
+                  <Button Content="清空历史" Style="{StaticResource DangerButton}" Click="OnClearHistory"/>
                 </StackPanel>
                 <Border Background="#F1F5F9" CornerRadius="10" Padding="12,10" Margin="0,12,0,0">
                   <StackPanel Orientation="Horizontal">
@@ -300,18 +373,12 @@
                 <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" Margin="0,0,0,8"
                            Text="用于无法选中复制的画面。仅在你按键或点击下方按钮时截屏，不会后台扫描。"/>
                 <CheckBox x:Name="EnableScreenshotHotkeyCheck" Content="启用框选截屏热键" Margin="0,0,0,8"/>
-                <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*" MinWidth="16"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <Border Grid.Column="0" Style="{StaticResource SettingToolbarLabelHost}">
-                    <TextBlock Text="截屏热键" Style="{StaticResource SettingToolbarLabel}"/>
-                  </Border>
-                  <TextBox x:Name="ScreenshotHotkeyBox" Grid.Column="2" Width="200" IsReadOnly="True"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
+                <TextBlock Text="截屏热键" Style="{StaticResource SettingFieldLabel}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                  <TextBox x:Name="ScreenshotHotkeyBox" Width="200" IsReadOnly="True" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                  <Button Content="按下录制" VerticalAlignment="Center" Click="OnRecordScreenshotHotkey"/>
+                  <Button Content="恢复默认" Margin="8,0,0,0" VerticalAlignment="Center" Click="OnResetScreenshotHotkey"/>
+                </StackPanel>
                 <CheckBox x:Name="HideSettingsForScreenshotPickCheck" Content="框选前自动隐藏设置窗口（便于全屏框选）"
                           Margin="0,0,0,8" IsChecked="True"/>
                 <Button Content="立即框选截屏翻译" HorizontalAlignment="Left" Click="OnScreenshotRegionNow"/>
@@ -343,7 +410,7 @@
           <StackPanel x:Name="PanelGeneral" Visibility="Collapsed">
             <TextBlock Text="通用" Style="{StaticResource SettingPageTitle}" Margin="0,0,0,4"/>
             <TextBlock Style="{StaticResource SettingHintText}" Margin="0,0,0,16"
-                       Text="全局外观与启动行为。译文窗/历史窗可单独调透明度与附加项。"/>
+                       Text="全局外观与启动行为；浮窗页可分别调译文/历史透明度。"/>
             <Border Style="{StaticResource SectionBorder}">
               <StackPanel>
                 <TextBlock Text="外观" Style="{StaticResource SettingSectionHeader}"/>
@@ -363,16 +430,19 @@
                 </Grid>
                 <TextBlock Text="浮窗字号" Style="{StaticResource SettingRowLabel}" Margin="0,0,0,8"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                  <Slider x:Name="GeneralFontScaleSlider" Minimum="85" Maximum="135" Width="220"
-                          TickFrequency="5" IsSnapToTickEnabled="True"/>
-                  <TextBox x:Name="GeneralFontScaleBox" Width="44" Margin="8,0,0,0" VerticalAlignment="Center"
-                           MaxLength="3" LostFocus="OnGeneralFontScaleBoxLostFocus"/>
+                  <Slider x:Name="GeneralFontScaleSlider" Minimum="90" Maximum="200" Width="220"
+                          TickFrequency="1" IsSnapToTickEnabled="True"/>
+                  <TextBox x:Name="GeneralFontScaleBox" Width="52" Margin="8,0,0,0" VerticalAlignment="Center"
+                           Style="{StaticResource FrostCompactTextBox}" MaxLength="3"
+                           LostFocus="OnGeneralFontScaleBoxLostFocus"
+                           PreviewKeyDown="OnOpacityBoxPreviewKeyDown"/>
                   <TextBlock Text="%" Style="{StaticResource SettingRowLabel}" Margin="4,0,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                   <Button Content="标准" Tag="100" Padding="8,4" Margin="0,0,6,0" Click="OnGeneralFontScalePreset"/>
-                  <Button Content="较大" Tag="115" Padding="8,4" Margin="0,0,6,0" Click="OnGeneralFontScalePreset"/>
-                  <Button Content="更大" Tag="130" Padding="8,4" Click="OnGeneralFontScalePreset"/>
+                  <Button Content="较大" Tag="130" Padding="8,4" Margin="0,0,6,0" Click="OnGeneralFontScalePreset"/>
+                  <Button Content="大" Tag="160" Padding="8,4" Margin="0,0,6,0" Click="OnGeneralFontScalePreset"/>
+                  <Button Content="特大" Tag="200" Padding="8,4" Click="OnGeneralFontScalePreset"/>
                 </StackPanel>
                 <Grid Style="{StaticResource SettingFormRow}" Margin="0,0,0,8">
                   <Grid.ColumnDefinitions>
@@ -385,7 +455,8 @@
                   </Border>
                   <ComboBox x:Name="GeneralFontFamilyCombo" Grid.Column="2" Width="220"
                             HorizontalAlignment="Right" VerticalAlignment="Center"
-                            DisplayMemberPath="Label" SelectedValuePath="Id"/>
+                            DisplayMemberPath="Label" SelectedValuePath="Id"
+                            SelectionChanged="OnGeneralFontFamilyChanged"/>
                 </Grid>
                 <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap"
                            Text="保存后同步到译文窗与历史窗；译文/历史页可单独调透明度。右键浮窗正文可复制、全选。"/>
@@ -423,13 +494,8 @@
               <StackPanel>
                 <TextBlock Text="本地数据" Style="{StaticResource SettingSectionHeader}" Margin="0,0,0,8"/>
                 <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" Margin="0,0,0,10"
-                           Text="历史记录默认仅存本机 SQLite；截屏 OCR 仅在您主动框选时执行，不后台扫描屏幕。"/>
-                <StackPanel Orientation="Horizontal">
-                  <Button Content="导出历史" Margin="0,0,8,0" Click="OnExportHistory"/>
-                  <Button Content="导入历史" Margin="0,0,8,0" Click="OnImportHistory"/>
-                  <Button Content="清空翻译历史" Style="{StaticResource DangerButton}" Margin="0,0,8,0" Click="OnClearHistory"/>
-                  <Button Content="打开配置目录" Click="OnOpenConfigDir"/>
-                </StackPanel>
+                           Text="历史记录默认仅存本机 SQLite；截屏 OCR 仅在您主动框选时执行。"/>
+                <Button Content="打开配置目录" HorizontalAlignment="Left" Click="OnOpenConfigDir"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource SectionBorder}">

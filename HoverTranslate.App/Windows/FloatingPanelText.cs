@@ -11,7 +11,7 @@ internal static class FloatingPanelText
     {
         var colors = PanelAppearance.GetTheme(options.Theme);
         box.FontFamily = PanelAppearance.ResolveFontFamily(options.FontFamilyName);
-        var baseSize = primary ? 14.0 : 12.0;
+        var baseSize = primary ? 15.0 : 13.0;
         box.FontSize = Math.Round(baseSize * options.FontSizeScale, 1);
         box.Foreground = new SolidColorBrush(colors.Text);
         box.CaretBrush = box.Foreground;

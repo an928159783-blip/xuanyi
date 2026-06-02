@@ -30,7 +30,14 @@ public sealed class AutoTranslator : ITranslator
                 var translator = ProfileTranslatorFactory.Create(profile, _config, _glossary);
                 var result = await translator.TranslateAsync(text, ct).ConfigureAwait(false);
                 if (result.Success)
-                    return TranslationResult.Ok(result.SourceText, result.TranslatedText, profile.Name);
+                    return TranslationResult.Ok(
+                        result.SourceText,
+                        result.TranslatedText,
+                        ApiProfileDisplay.GetPrimaryLabel(profile),
+                        result.Model,
+                        result.PromptTokens,
+                        result.CompletionTokens,
+                        result.TotalTokens);
                 lastError = result.ErrorMessage;
             }
             catch (Exception ex)

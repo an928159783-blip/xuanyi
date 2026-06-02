@@ -9,6 +9,7 @@ public sealed class HoverTranslateService : IDisposable
 {
     private readonly TranslationCoordinator _coordinator;
     private readonly ConfigService _configService;
+    private readonly SelectionCaptureService _selectionCapture = new();
     private readonly DispatcherTimer _timer;
 
     private int _lastX = -1, _lastY = -1;
@@ -21,8 +22,15 @@ public sealed class HoverTranslateService : IDisposable
 
     private string? _lastHoverTranslated;
 
+    private bool _pointerSelecting;
+    private DateTime _selectionReleasedAt = DateTime.MinValue;
+    private bool _selectionHeavyAttempted;
+
     private bool _busy;
     private DateTime _pausedUntil = DateTime.MinValue;
+
+    private const int SelectionSettleMs = 120;
+    private const int SelectionReleaseWindowMs = 6000;
 
     public HoverTranslateService(TranslationCoordinator coordinator, ConfigService configService)
     {
@@ -45,14 +53,18 @@ public sealed class HoverTranslateService : IDisposable
 
     public void OnManualTranslateStarting()
     {
-        _pausedUntil = DateTime.UtcNow.AddSeconds(15);
         _busy = true;
         _stableText = null;
         _textStillMs = 0;
         _stableSelection = null;
         _selectionStillMs = 0;
-        _lastX = -1;
-        _lastY = -1;
+        _selectionHeavyAttempted = false;
+        var pos = GetCursorPos();
+        if (pos.X >= 0)
+        {
+            _lastX = pos.X;
+            _lastY = pos.Y;
+        }
     }
 
     public void OnManualTranslateFinished() => _busy = false;
@@ -62,7 +74,9 @@ public sealed class HoverTranslateService : IDisposable
         if (_busy || DateTime.UtcNow < _pausedUntil) return;
 
         var config = _configService.Load();
-        if (IsLeftButtonDown()) return;
+        var leftDown = IsLeftButtonDown();
+        TrackPointerSelection(leftDown);
+        if (leftDown) return;
 
         // 仅当光标在炫译自有浮窗上时暂停；勿因译文/历史窗「已打开」就全局禁用悬停。
         if (AppWindowHoverGuard.ShouldSuppressHoverCapture())
@@ -80,20 +94,76 @@ public sealed class HoverTranslateService : IDisposable
 
         if (!config.EnableHover) return;
 
-        if (UiAutomationSelectionCapture.HasActiveSelection())
-            return;
+        if (config.TranslateOnSelection && UiAutomationSelectionCapture.HasActiveSelection())
+        {
+            var active = UiAutomationSelectionCapture.TryGetSelectedText()?.Trim();
+            if (!string.IsNullOrEmpty(active)
+                && !string.Equals(active, _lastSelectionTranslated, StringComparison.Ordinal))
+                return;
+        }
 
         TickHoverTranslate(config);
     }
 
-    private bool TryTickSelectionTranslate(AppConfig config)
+    private void TrackPointerSelection(bool leftDown)
     {
-        var selection = UiAutomationSelectionCapture.TryGetSelectedText()?.Trim();
-        if (!TranslationDirectionResolver.ShouldTranslateText(selection ?? "", config))
+        if (leftDown)
         {
+            _pointerSelecting = true;
+            _selectionHeavyAttempted = false;
+            return;
+        }
+
+        if (_pointerSelecting)
+        {
+            _pointerSelecting = false;
+            _selectionReleasedAt = DateTime.UtcNow;
+            _selectionHeavyAttempted = false;
             _stableSelection = null;
             _selectionStillMs = 0;
-            return false;
+        }
+    }
+
+    private string? ResolveSelectionText()
+    {
+        var uia = UiAutomationSelectionCapture.TryGetSelectedText()?.Trim();
+        if (IsUsefulSelection(uia))
+            return uia;
+
+        if (!IsWithinSelectionReleaseWindow())
+            return null;
+
+        if ((DateTime.UtcNow - _selectionReleasedAt).TotalMilliseconds < SelectionSettleMs)
+            return null;
+
+        if (_selectionHeavyAttempted)
+            return null;
+
+        _selectionHeavyAttempted = true;
+        return _selectionCapture.GetTextForTranslation()?.Trim();
+    }
+
+    private bool IsWithinSelectionReleaseWindow() =>
+        _selectionReleasedAt != DateTime.MinValue
+        && (DateTime.UtcNow - _selectionReleasedAt).TotalMilliseconds <= SelectionReleaseWindowMs;
+
+    private bool TryTickSelectionTranslate(AppConfig config)
+    {
+        if (IsWithinSelectionReleaseWindow()
+            && !_selectionHeavyAttempted
+            && (DateTime.UtcNow - _selectionReleasedAt).TotalMilliseconds < SelectionSettleMs)
+            return true;
+
+        var selection = ResolveSelectionText();
+        if (!TranslationDirectionResolver.ShouldTranslateText(selection ?? "", config))
+        {
+            if (!IsWithinSelectionReleaseWindow())
+            {
+                _stableSelection = null;
+                _selectionStillMs = 0;
+            }
+
+            return IsWithinSelectionReleaseWindow();
         }
 
         selection = selection!.Trim();
@@ -105,17 +175,20 @@ public sealed class HoverTranslateService : IDisposable
         }
 
         _selectionStillMs += 150;
-        var debounceMs = Math.Max(350, HoverProtectionOptions.FromConfig(config).EffectiveDebounceMs(config) / 2);
+        var debounceMs = Math.Max(200, HoverProtectionOptions.FromConfig(config).EffectiveDebounceMs(config) / 3);
         if (_selectionStillMs < debounceMs) return true;
 
         if (string.Equals(selection, _lastSelectionTranslated, StringComparison.Ordinal))
-            return true;
+            return false;
 
         _lastSelectionTranslated = selection;
         _busy = true;
         _ = RunSelectionTranslateAsync(selection);
         return true;
     }
+
+    private static bool IsUsefulSelection(string? text) =>
+        !string.IsNullOrWhiteSpace(text) && text.Trim().Length >= 1;
 
     private void TickHoverTranslate(AppConfig config)
     {
@@ -167,7 +240,7 @@ public sealed class HoverTranslateService : IDisposable
     {
         try
         {
-            await _coordinator.TranslateTextAsync(text, fromHover: false, forceShowTranslation: true)
+            await _coordinator.TranslateTextAsync(text, fromHover: false, forceShowTranslation: false)
                 .ConfigureAwait(false);
         }
         finally

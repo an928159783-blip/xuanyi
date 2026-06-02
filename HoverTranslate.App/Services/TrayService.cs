@@ -90,14 +90,9 @@ public sealed class TrayService : IDisposable
         historyWin.Click += (_, _) => _onShowHistory();
         menu.Items.Add(historyWin);
 
-        var shotHk = _config.EnableScreenshotRegionHotkey
-            ? (string.IsNullOrWhiteSpace(_config.ScreenshotRegionHotkey) ? "Ctrl+Shift+S" : _config.ScreenshotRegionHotkey.Trim())
-            : null;
-        var screenshot = new ToolStripMenuItem(shotHk is null ? "框选截屏翻译" : $"框选截屏翻译  {shotHk}")
+        var screenshot = new ToolStripMenuItem("框选截屏翻译")
         {
-            ToolTipText = shotHk is null
-                ? "可在设置 → 热键与悬停 → 截屏翻译中配置"
-                : $"拖选屏幕区域 OCR 后翻译；热键 {shotHk}"
+            ToolTipText = "拖选屏幕区域 OCR 后翻译；热键可在设置 → 热键与悬停中配置"
         };
         screenshot.Click += (_, _) => _onScreenshotRegion();
         menu.Items.Add(screenshot);

@@ -25,6 +25,7 @@ public sealed class ScreenshotTranslateService
     {
         if (_busy) return;
         _busy = true;
+        _coordinator.BeginHoverSuppression();
 
         try
         {
@@ -75,6 +76,7 @@ public sealed class ScreenshotTranslateService
         finally
         {
             _busy = false;
+            _coordinator.EndHoverSuppression();
         }
     }
 }

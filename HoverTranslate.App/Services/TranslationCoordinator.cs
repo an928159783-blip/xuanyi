@@ -21,7 +21,11 @@ public sealed class TranslationCoordinator
 
     public void AttachHover(HoverTranslateService hover) => _hover = hover;
 
-    public Task TranslateFromSelectionOrClipboardAsync(string? preCaptured = null)
+    public void BeginHoverSuppression() => _hover?.OnManualTranslateStarting();
+
+    public void EndHoverSuppression() => _hover?.OnManualTranslateFinished();
+
+    public Task TranslateFromSelectionOrClipboardAsync(string? preCaptured, bool fromHotkey)
     {
         _hover?.OnManualTranslateStarting();
 
@@ -29,12 +33,15 @@ public sealed class TranslationCoordinator
         {
             try
             {
-                await TranslateTextCoreAsync(preCaptured, fromHover: false, forceShowTranslation: true)
+                await TranslateTextCoreAsync(
+                        preCaptured,
+                        fromHover: false,
+                        explicitPanel: fromHotkey)
                     .ConfigureAwait(true);
             }
             catch (Exception ex)
             {
-                ShowFatalError("翻译失败", ex);
+                ShowFatalError("翻译失败", ex, explicitPanel: fromHotkey);
             }
             finally
             {
@@ -49,17 +56,18 @@ public sealed class TranslationCoordinator
         {
             try
             {
-                await TranslateTextCoreAsync(text, fromHover, forceShowTranslation).ConfigureAwait(true);
+                var explicitPanel = !fromHover && forceShowTranslation;
+                await TranslateTextCoreAsync(text, fromHover, explicitPanel).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
                 if (!fromHover)
-                    ShowFatalError("翻译失败", ex);
+                    ShowFatalError("翻译失败", ex, explicitPanel: forceShowTranslation);
             }
         });
     }
 
-    private async Task TranslateTextCoreAsync(string? text, bool fromHover, bool forceShowTranslation)
+    private async Task TranslateTextCoreAsync(string? text, bool fromHover, bool explicitPanel)
     {
         var config = _configService.Load();
         text = text?.Trim() ?? "";
@@ -73,7 +81,7 @@ public sealed class TranslationCoordinator
             {
                 ShowMessage(
                     "未配置翻译接口。请打开「设置」手动添加 API Key。\n密钥仅保存在本机 %USERPROFILE%\\.hover-translate\\，仅向您填写的服务商发送，炫译不会上传密钥。",
-                    forceShowTranslation);
+                    explicitPanel);
                 SettingsWindowHost.ShowOrActivate();
             }
             return;
@@ -88,24 +96,30 @@ public sealed class TranslationCoordinator
                     : config.Hotkey;
                 ShowMessage(
                     $"未读到文字。\n\n请尝试：\n1. 选中英文后先按 Ctrl+C，再按 {hk}\n2. 或保持选中不松手，直接按 {hk}\n\n部分 PDF/阅读器不支持自动取词，将依赖剪贴板。",
-                    forceShowTranslation);
+                    explicitPanel);
             }
             return;
         }
 
         var panelAlreadyOpen = TranslationResultWindow.IsPanelVisible;
-        var showPanelOnHover = config.ShowPanelOnHover
-            && !TranslationResultWindow.SuppressAutoShowUntilManualOpen;
-        var showTranslation = panelAlreadyOpen
-            || (fromHover ? showPanelOnHover : forceShowTranslation || config.ShowPanelOnTranslate);
+        var suppressAutoPanel = TranslationResultWindow.SuppressAutoShowUntilManualOpen
+            && config.SuppressPanelAfterUserClose;
 
-        // 译文窗已关且不会自动弹出时：不执行悬停翻译（避免仅开着历史窗时仍后台译并写入历史）。
-        if (fromHover && !panelAlreadyOpen && !showPanelOnHover)
+        var presentation = ResolvePresentation(
+            fromHover, explicitPanel, panelAlreadyOpen, suppressAutoPanel, config);
+        var showTranslation = presentation.ShowPanel;
+        var showOverlay = presentation.ShowOverlay;
+
+        // 关窗 suppress：被动触发不翻译、不弹大窗也不弹浮层
+        if (!explicitPanel && !panelAlreadyOpen && suppressAutoPanel)
+            return;
+
+        if (fromHover && !panelAlreadyOpen && !showTranslation && !showOverlay)
             return;
 
         if (showTranslation)
         {
-            TranslationResultWindow.EnsureVisible();
+            TranslationResultWindow.EnsureVisible(clearSuppress: explicitPanel && !suppressAutoPanel);
             TranslationResultWindow.Instance.SetLoading(text);
         }
 
@@ -140,7 +154,7 @@ public sealed class TranslationCoordinator
             var historyAdded = false;
             var recordHistory = config.EnableHistory
                 && !(fromHover && hoverFromCache)
-                && (!fromHover || TranslationResultWindow.IsPanelVisible || showPanelOnHover);
+                && (!fromHover || showTranslation || showOverlay);
             if (recordHistory)
             {
                 try
@@ -159,6 +173,8 @@ public sealed class TranslationCoordinator
             if (showTranslation)
                 TranslationResultWindow.Instance.ShowCurrent(
                     result.SourceText, result.TranslatedText, result.Provider);
+            else if (showOverlay)
+                OverlayWindow.ShowResult(result, config);
 
             if (historyAdded && HistoryPanelWindow.IsPanelVisible && config.EnableHistory && _history != null)
                 HistoryPanelWindow.Instance.ReloadHistory(_history);
@@ -167,20 +183,77 @@ public sealed class TranslationCoordinator
         {
             TranslationResultWindow.Instance.ShowError(result.ErrorMessage ?? "未知错误");
         }
+        else if (showOverlay)
+        {
+            OverlayWindow.ShowResult(result, config);
+        }
     }
 
-    private static void ShowMessage(string message, bool showTranslation)
+    private static TranslationPresentation ResolvePresentation(
+        bool fromHover,
+        bool explicitPanel,
+        bool panelAlreadyOpen,
+        bool suppressAutoPanel,
+        AppConfig config)
     {
-        if (!showTranslation) return;
-        TranslationResultWindow.EnsureVisible();
-        TranslationResultWindow.Instance.ShowError(message);
+        if (fromHover)
+        {
+            var showPanelOnHover = config.ShowPanelOnHover && !suppressAutoPanel;
+            var showPanel = panelAlreadyOpen || showPanelOnHover;
+            var showOverlay = !showPanel && config.ShowPanelOnHover && !suppressAutoPanel;
+            return new TranslationPresentation(showPanel, showOverlay);
+        }
+
+        if (explicitPanel)
+        {
+            var showPanel = panelAlreadyOpen || config.ShowPanelOnTranslate;
+            return new TranslationPresentation(showPanel, false);
+        }
+
+        var passivePanel = panelAlreadyOpen
+            || (!suppressAutoPanel && config.ShowPanelOnTranslate);
+        var passiveOverlay = !passivePanel && config.ShowPanelOnTranslate && !suppressAutoPanel;
+        return new TranslationPresentation(passivePanel, passiveOverlay);
     }
 
-    private static void ShowFatalError(string title, Exception ex)
+    private readonly record struct TranslationPresentation(bool ShowPanel, bool ShowOverlay);
+
+    private static bool IsPassiveTranslationSuppressed()
     {
-        TranslationResultWindow.EnsureVisible();
-        TranslationResultWindow.Instance.ShowError($"{title}：{ex.Message}");
-        var owner = TranslationResultWindow.IsPanelVisible ? TranslationResultWindow.Instance : null;
-        AppDialog.Error($"{title}：{ex.Message}\n\n{ex}", title, owner);
+        var config = new ConfigService().Load();
+        return TranslationResultWindow.SuppressAutoShowUntilManualOpen
+            && config.SuppressPanelAfterUserClose;
+    }
+
+    private static void ShowMessage(string message, bool explicitPanel)
+    {
+        if (explicitPanel)
+        {
+            TranslationResultWindow.EnsureVisible(clearSuppress: false);
+            TranslationResultWindow.Instance.ShowError(message);
+            return;
+        }
+
+        if (IsPassiveTranslationSuppressed())
+            return;
+
+        OverlayWindow.ShowResult(TranslationResult.Fail("", message), new ConfigService().Load());
+    }
+
+    private static void ShowFatalError(string title, Exception ex, bool explicitPanel)
+    {
+        if (explicitPanel)
+        {
+            TranslationResultWindow.EnsureVisible(clearSuppress: false);
+            TranslationResultWindow.Instance.ShowError($"{title}：{ex.Message}");
+            var owner = TranslationResultWindow.IsPanelVisible ? TranslationResultWindow.Instance : null;
+            AppDialog.Error($"{title}：{ex.Message}\n\n{ex}", title, owner);
+            return;
+        }
+
+        if (IsPassiveTranslationSuppressed())
+            return;
+
+        AppDialog.Error($"{title}：{ex.Message}\n\n{ex}", title);
     }
 }

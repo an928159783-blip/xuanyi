@@ -33,14 +33,14 @@
           <StackPanel>
             <TextBlock Text="托盘与窗口" Style="{StaticResource SettingSectionHeader}"/>
             <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" LineHeight="20"
-                       Text="图标在任务栏右下角；若看不到，请点击 ^ 展开隐藏图标。&#x0a;右键托盘：打开译文/历史窗、框选截屏、设置、退出。"/>
+                       Text="图标在任务栏右下角；若看不到，请点击 ^ 展开隐藏图标。&#x0a;右键托盘：打开译文窗、历史窗、框选截屏翻译、设置、退出。"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource FrostSectionBorder}">
           <StackPanel>
             <TextBlock Text="翻译方式" Style="{StaticResource SettingSectionHeader}"/>
             <TextBlock Style="{StaticResource SettingSmallHint}" TextWrapping="Wrap" LineHeight="20"
-                       Text="· 热键翻译选中内容（默认 Ctrl+Shift+T，在「热键与悬停」配置）&#x0a;· 悬停、选中即译、复制后自动翻译（可分别开关）&#x0a;· 框选截屏 OCR（默认 Ctrl+Shift+S）&#x0a;· 部分软件（Electron/PDF）仅支持热键、复制或截屏"/>
+                       Text="· 热键翻译：选中文字后按热键（默认 Ctrl+Shift+T，可在「热键与悬停」修改）&#x0a;· 选中即译 / 复制后自动翻译 / 悬停翻译：均可单独开关&#x0a;· 悬停：译文窗已打开，或开启「悬停时在译文窗显示」时会在译文窗显示；否则弹出轻量译文浮层&#x0a;· 框选截屏 OCR：托盘右键或设置中配置热键，用于无法选中复制的画面&#x0a;· Electron / PDF 等场景建议用热键、复制或截屏"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource FrostSectionBorder}">

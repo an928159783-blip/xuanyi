@@ -82,7 +82,10 @@ public abstract class LlmTranslatorBase : ITranslator
 
             translated = CleanModelOutput(translated);
             translated = _glossary.ApplyPostTranslation(translated, _config.Glossary);
-            return TranslationResult.Ok(text, translated, ProviderId);
+            var (prompt, completion, total) = ExtractUsage(body);
+            return TranslationResult.Ok(
+                text, translated, ResolveProviderLabel(), ResolveModelName(),
+                prompt, completion, total);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("SSL", StringComparison.OrdinalIgnoreCase)
                                               || ex.InnerException?.Message.Contains("SSL", StringComparison.OrdinalIgnoreCase) == true)
@@ -100,6 +103,29 @@ public abstract class LlmTranslatorBase : ITranslator
     {
         var glossary = _glossary.BuildGlossaryPromptSection(_config.Glossary);
         return TranslationDirectionResolver.BuildLlmSystemPrompt(text, _config, glossary);
+    }
+
+    protected virtual string ResolveProviderLabel() => ProviderId;
+
+    protected virtual string? ResolveModelName() => GetConfig(_config).Model;
+
+    private static (int? Prompt, int? Completion, int? Total) ExtractUsage(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("usage", out var usage))
+                return (null, null, null);
+
+            int? prompt = usage.TryGetProperty("prompt_tokens", out var p) ? p.GetInt32() : null;
+            int? completion = usage.TryGetProperty("completion_tokens", out var c) ? c.GetInt32() : null;
+            int? total = usage.TryGetProperty("total_tokens", out var t) ? t.GetInt32() : null;
+            return (prompt, completion, total);
+        }
+        catch
+        {
+            return (null, null, null);
+        }
     }
 
     private static string ExtractAssistantContent(string json)

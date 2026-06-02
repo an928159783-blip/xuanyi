@@ -41,7 +41,7 @@ public static class UiAutomationTextCapture
                 var range = textPattern.RangeFromPoint(point);
                 if (range == null) continue;
 
-                // 优先段落/整行，避免连续英文只译光标下的单词
+                // 优先连续段落/整行，再回退单词
                 var paragraphText = ExpandRangeText(range, TextUnit.Paragraph);
                 if (TryPickHoverText(paragraphText, out var fromParagraph))
                     return fromParagraph;
@@ -91,7 +91,6 @@ public static class UiAutomationTextCapture
         var resolved = TextHeuristics.ResolveHoverTarget(text);
         if (string.IsNullOrWhiteSpace(resolved)) return false;
 
-        // 避免从整段里只抠出一两个词
         if (resolved.Length < 3) return false;
         if (text.Length >= 12 && resolved.Length < Math.Min(12, text.Length / 4))
             return false;

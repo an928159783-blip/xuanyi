@@ -55,7 +55,7 @@ public sealed class AppConfig
     public PanelPlacement TranslationPanel { get; set; } = new();
     public PanelPlacement HistoryPanel { get; set; } = new();
     public PanelChromeOptions TranslationPanelUi { get; set; } = new();
-    public PanelChromeOptions HistoryPanelUi { get; set; } = new();
+    public PanelChromeOptions HistoryPanelUi { get; set; } = new() { Opacity = 0.9 };
     public Dictionary<string, string> Glossary { get; set; } = new();
 
     // 兼容旧版 config.json，Load 时迁移到 TranslationPanelUi / HistoryPanelUi
@@ -113,7 +113,7 @@ public sealed class PanelChromeOptions
     public double Opacity { get; set; } = 0.92;
     /// <summary>dark | light | slate | system（跟随系统浅/深）</summary>
     public string Theme { get; set; } = "dark";
-    /// <summary>浮窗正文字号倍率（0.85～1.35）</summary>
+    /// <summary>浮窗正文字号倍率（0.90～2.00，100=标准）</summary>
     public double FontSizeScale { get; set; } = 1.0;
     /// <summary>浮窗字体族名；空=默认（微软雅黑 UI / Segoe UI）</summary>
     public string FontFamilyName { get; set; } = "";

@@ -75,6 +75,7 @@ public sealed class ClipboardTranslateService : IDisposable
 
             _lastTriggered = text;
             _lastAt = now;
+            ClipboardSelectionHint.NoteClipboardText(text);
             _onTranslate?.Invoke(text);
         }
         catch

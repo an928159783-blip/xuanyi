@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using HoverTranslate.Core.Models;
 using Microsoft.Data.Sqlite;
@@ -165,6 +166,90 @@ public sealed class HistoryStore : IDisposable
         var entries = GetRecent(limit);
         var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(filePath, json);
+    }
+
+    /// <summary>导出为人类可读的 UTF-8 文本（仅原文与译文，便于查看与再导入）。</summary>
+    public void ExportToTextFile(string filePath, int limit = 10_000)
+    {
+        var entries = GetRecent(limit);
+        File.WriteAllText(filePath, HistoryTextFormat.FormatExport(entries),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+    }
+
+    /// <summary>从 TXT 或 JSON 导入历史。</summary>
+    public int ImportFromFile(string filePath, bool merge = true)
+    {
+        var ext = Path.GetExtension(filePath);
+        if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase))
+            return ImportFromJsonFile(filePath, merge);
+
+        if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+            return ImportFromTextFile(filePath, merge);
+
+        var head = File.ReadAllText(filePath).TrimStart();
+        if (head.StartsWith('[') || head.StartsWith('{'))
+            return ImportFromJsonFile(filePath, merge);
+
+        return ImportFromTextFile(filePath, merge);
+    }
+
+    public int ImportFromTextFile(string filePath, bool merge = true)
+    {
+        var text = File.ReadAllText(filePath);
+        var pairs = HistoryTextFormat.ParseImport(text);
+        if (pairs.Count == 0)
+            throw new InvalidOperationException("文件中没有可导入的历史记录。");
+
+        using var tx = _connection.BeginTransaction();
+        try
+        {
+            if (!merge)
+            {
+                using var clear = _connection.CreateCommand();
+                clear.Transaction = tx;
+                clear.CommandText = "DELETE FROM history";
+                clear.ExecuteNonQuery();
+            }
+
+            foreach (var (source, target) in pairs)
+                InsertRow(source, target, "", DateTime.UtcNow, tx);
+
+            tx.Commit();
+        }
+        catch
+        {
+            tx.Rollback();
+            throw;
+        }
+
+        return pairs.Count;
+    }
+
+    public static ImportParseSummary AnalyzeImportFile(string filePath)
+    {
+        var ext = Path.GetExtension(filePath);
+        if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            var json = File.ReadAllText(filePath);
+            var entries = JsonSerializer.Deserialize<List<HistoryEntry>>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            var pairs = (entries ?? [])
+                .Where(e => !string.IsNullOrWhiteSpace(e.Source) || !string.IsNullOrWhiteSpace(e.Target))
+                .Select(e =>
+                {
+                    var source = e.Source?.Trim() ?? "";
+                    var target = e.Target?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(target) && !string.IsNullOrEmpty(source))
+                        target = source;
+                    return (source, target);
+                })
+                .ToList();
+            return new ImportParseSummary { EntryCount = pairs.Count, Pairs = pairs };
+        }
+
+        return HistoryTextFormat.SummarizeImport(File.ReadAllText(filePath));
     }
 
     /// <summary>从 JSON 导入历史。merge=true 追加，false 先清空再导入。</summary>

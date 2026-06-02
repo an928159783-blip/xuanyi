@@ -28,12 +28,17 @@ public static class ProviderResolver
         if (string.Equals(config.Provider, "auto", StringComparison.OrdinalIgnoreCase))
             return "Auto";
 
-        return config.ApiProfiles.FirstOrDefault(p => p.Id == config.Provider)?.Name ?? "未配置";
+        return config.ApiProfiles.FirstOrDefault(p => p.Id == config.Provider) is { } profile
+            ? ApiProfileDisplay.GetPrimaryLabel(profile)
+            : "未配置";
     }
 
     public static List<AutoProviderEntry> ListAllProviders(AppConfig config) =>
         GetEnabledProfiles(config)
-            .Select(p => new AutoProviderEntry(p.Id, $"{p.Name} ({KindLabel(p.Kind)})", !string.IsNullOrWhiteSpace(p.ApiKey)))
+            .Select(p => new AutoProviderEntry(
+                p.Id,
+                ApiProfileDisplay.GetPrimaryLabel(p),
+                !string.IsNullOrWhiteSpace(p.ApiKey)))
             .ToList();
 
     public static List<ApiProfile> GetAutoCandidates(AppConfig config)

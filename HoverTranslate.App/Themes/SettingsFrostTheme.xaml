@@ -158,6 +158,12 @@
     </Setter>
   </Style>
 
+  <Style x:Key="FrostCompactTextBox" TargetType="TextBox" BasedOn="{StaticResource FrostTextBox}">
+    <Setter Property="Padding" Value="4,0"/>
+    <Setter Property="TextAlignment" Value="Center"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+  </Style>
+
   <Style x:Key="FrostPasswordBox" TargetType="PasswordBox">
     <Setter Property="FontFamily" Value="{StaticResource SettingsFontFamily}"/>
     <Setter Property="FontSize" Value="14"/>
@@ -291,15 +297,34 @@
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Padding" Value="4"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ListBox">
           <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
-            <ScrollViewer Padding="{TemplateBinding Padding}" Focusable="False">
+            <ScrollViewer Padding="{TemplateBinding Padding}" Focusable="False"
+                          VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
+                          HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                          CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}">
               <ItemsPresenter/>
             </ScrollViewer>
           </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="FrostListBoxNoScroll" TargetType="ListBox">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBox">
+          <ItemsPresenter/>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
@@ -312,6 +337,7 @@
     <Setter Property="Foreground" Value="#1E293B"/>
     <Setter Property="Padding" Value="8,6"/>
     <Setter Property="Margin" Value="2"/>
+    <Setter Property="MinHeight" Value="52"/>
     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     <Setter Property="Template">
       <Setter.Value>

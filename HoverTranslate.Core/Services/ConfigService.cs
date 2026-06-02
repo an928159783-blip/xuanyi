@@ -42,42 +42,62 @@ public sealed class ConfigService
             config.EnableHistory = true;
         }
 
-        MigratePanelUi(config);
+        var migrated = MigratePanelUi(config);
         var profileCountBefore = config.ApiProfiles.Count;
         ConfigMigration.MigrateBuiltInToProfiles(config);
-        if (config.ApiProfiles.Count > profileCountBefore)
+        if (migrated || config.ApiProfiles.Count > profileCountBefore)
             Save(config);
         return config;
     }
 
-    public static void MigratePanelUi(AppConfig config)
+    /// <returns>是否修改了配置（需写回磁盘）</returns>
+    public static bool MigratePanelUi(AppConfig config)
     {
+        var changed = false;
+
         if (config.TranslationPanelUi.Opacity <= 0)
-            config.TranslationPanelUi.Opacity = config.OverlayOpacity > 0 ? config.OverlayOpacity : 0.9;
+        {
+            config.TranslationPanelUi.Opacity = 0.9;
+            changed = true;
+        }
+
+        if (config.HistoryPanelUi.Opacity <= 0)
+        {
+            config.HistoryPanelUi.Opacity = 0.9;
+            changed = true;
+        }
+
+        // 旧版误将 overlayOpacity（常为 0.6）写入 historyPanelUi
+        if (config.OverlayOpacity is > 0 and < 0.85
+            && Math.Abs(config.HistoryPanelUi.Opacity - config.OverlayOpacity) < 0.001)
+        {
+            config.HistoryPanelUi.Opacity = 0.9;
+            changed = true;
+        }
 
         if (!config.TranslationPanelUi.ShowExtras && config.TranslationPanelShowExtras)
             config.TranslationPanelUi.ShowExtras = true;
 
-        if (config.HistoryPanelUi.Opacity <= 0 || config.HistoryPanelUi.Opacity == 0.9 && config.OverlayOpacity != 0.9)
-        {
-            if (Math.Abs(config.HistoryPanelUi.Opacity - 0.9) < 0.001 && Math.Abs(config.OverlayOpacity - 0.9) > 0.001)
-                config.HistoryPanelUi.Opacity = config.OverlayOpacity;
-        }
+        var tOp = ClampPanelOpacity(config.TranslationPanelUi.Opacity);
+        var hOp = ClampPanelOpacity(config.HistoryPanelUi.Opacity);
+        if (Math.Abs(tOp - config.TranslationPanelUi.Opacity) > 0.0001) changed = true;
+        if (Math.Abs(hOp - config.HistoryPanelUi.Opacity) > 0.0001) changed = true;
+        config.TranslationPanelUi.Opacity = tOp;
+        config.HistoryPanelUi.Opacity = hOp;
 
-        if (config.AutoProviderIds.Count == 0 && config.ApiProfiles.Count > 0)
-        {
-            // 保持空列表=全部可用；不自动填充
-        }
+        var tScale = ClampFontSizeScale(config.TranslationPanelUi.FontSizeScale);
+        var hScale = ClampFontSizeScale(config.HistoryPanelUi.FontSizeScale);
+        if (Math.Abs(tScale - config.TranslationPanelUi.FontSizeScale) > 0.0001) changed = true;
+        if (Math.Abs(hScale - config.HistoryPanelUi.FontSizeScale) > 0.0001) changed = true;
+        config.TranslationPanelUi.FontSizeScale = tScale;
+        config.HistoryPanelUi.FontSizeScale = hScale;
 
-        config.TranslationPanelUi.Opacity = ClampPanelOpacity(config.TranslationPanelUi.Opacity);
-        config.HistoryPanelUi.Opacity = ClampPanelOpacity(config.HistoryPanelUi.Opacity);
-        config.TranslationPanelUi.FontSizeScale = ClampFontSizeScale(config.TranslationPanelUi.FontSizeScale);
-        config.HistoryPanelUi.FontSizeScale = ClampFontSizeScale(config.HistoryPanelUi.FontSizeScale);
+        return changed;
     }
 
     private static double ClampPanelOpacity(double value) => Math.Clamp(value, 0.0, 1.0);
 
-    public static double ClampFontSizeScale(double value) => Math.Clamp(value, 0.85, 1.35);
+    public static double ClampFontSizeScale(double value) => Math.Clamp(value, 0.90, 2.0);
 
     private static AppConfig LoadLegacyConfig(string json)
     {
@@ -147,6 +167,7 @@ public sealed class ConfigService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
     };
 }

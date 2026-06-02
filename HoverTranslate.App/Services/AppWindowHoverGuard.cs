@@ -20,6 +20,23 @@ internal static class AppWindowHoverGuard
         typeof(OverlayWindow)
     ];
 
+    /// <summary>前台为本应用（设置/对话框/浮窗）时，不触发选中即译。</summary>
+    public static bool ShouldSuppressAutoTranslateCapture()
+    {
+        if (ShouldSuppressHoverCapture())
+            return true;
+
+        if (SettingsWindowHost.IsOpen || AppDialogTracker.IsAnyOpen)
+            return true;
+
+        var hwnd = NativeMethods.GetForegroundWindow();
+        if (hwnd == IntPtr.Zero)
+            return false;
+
+        NativeMethods.GetWindowThreadProcessId(hwnd, out var pid);
+        return pid == Environment.ProcessId;
+    }
+
     public static bool ShouldSuppressHoverCapture()
     {
         if (!GetCursorPos(out var p))

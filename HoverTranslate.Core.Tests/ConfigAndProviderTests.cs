@@ -57,20 +57,6 @@ public class ConfigAndProviderTests
     }
 
     [Fact]
-    public void ListAllProviders_IncludesKindLabel()
-    {
-        var config = new AppConfig
-        {
-            ApiProfiles =
-            [
-                new ApiProfile { Id = "m1", Name = "MS", Kind = ApiProfileKinds.Microsoft, ApiKey = "k", Enabled = true }
-            ]
-        };
-        var entries = ProviderResolver.ListAllProviders(config);
-        Assert.Contains("微软", entries[0].Label);
-    }
-
-    [Fact]
     public void MigratePanelUi_ClampsOpacity()
     {
         var config = new AppConfig
@@ -80,6 +66,6 @@ public class ConfigAndProviderTests
         };
         ConfigService.MigratePanelUi(config);
         Assert.Equal(1.0, config.TranslationPanelUi.Opacity);
-        Assert.Equal(0.0, config.HistoryPanelUi.Opacity);
+        Assert.Equal(0.9, config.HistoryPanelUi.Opacity);
     }
 }

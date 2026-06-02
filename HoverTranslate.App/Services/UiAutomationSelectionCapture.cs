@@ -6,11 +6,10 @@ namespace HoverTranslate.App.Services;
 
 public static class UiAutomationSelectionCapture
 {
-    /// <summary>是否存在非空选区（用于抑制悬停抢译）。</summary>
     public static bool HasActiveSelection()
     {
         var text = TryGetSelectedText();
-        return IsUseful(text) && text!.Length >= 2;
+        return IsUseful(text);
     }
 
     public static string? TryGetSelectedText()
@@ -26,7 +25,7 @@ public static class UiAutomationSelectionCapture
                 return null;
 
             var root = AutomationElement.FromHandle(hwnd);
-            if (root == null)
+            if (root is null || UiAutomationAppScope.IsFromThisProcess(root))
                 return null;
 
             var fromRoot = ReadFromElement(root);
@@ -44,7 +43,10 @@ public static class UiAutomationSelectionCapture
     private static string? ReadFromFocusedElement()
     {
         var focused = AutomationElement.FocusedElement;
-        return focused == null ? null : ReadFromElement(focused);
+        if (focused is null || UiAutomationAppScope.IsFromThisProcess(focused))
+            return null;
+
+        return ReadFromElement(focused);
     }
 
     private static string? ReadFromElement(AutomationElement element)
@@ -91,7 +93,7 @@ public static class UiAutomationSelectionCapture
 
         try
         {
-            var children = parent.FindAll(TreeScope.Children, Condition.TrueCondition);
+            var children = parent.FindAll(TreeScope.Children, System.Windows.Automation.Condition.TrueCondition);
             foreach (AutomationElement child in children)
             {
                 var text = ReadTextPatternSelection(child);

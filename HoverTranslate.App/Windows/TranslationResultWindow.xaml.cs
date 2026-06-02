@@ -1,5 +1,8 @@
+using System.Windows;
 using HoverTranslate.Core.Models;
 using HoverTranslate.Core.Services;
+
+using HoverTranslate.App.Services;
 
 namespace HoverTranslate.App.Windows;
 
@@ -12,6 +15,12 @@ public partial class TranslationResultWindow : System.Windows.Window
     /// <summary>用户手动关闭译文窗后为 true，直至再次通过托盘/设置打开。</summary>
     public static bool SuppressAutoShowUntilManualOpen { get; private set; }
 
+    public static void ApplyBehaviorFromConfig(AppConfig config)
+    {
+        if (!config.SuppressPanelAfterUserClose)
+            SuppressAutoShowUntilManualOpen = false;
+    }
+
     public static TranslationResultWindow Instance
     {
         get
@@ -19,6 +28,12 @@ public partial class TranslationResultWindow : System.Windows.Window
             _instance ??= new TranslationResultWindow();
             return _instance;
         }
+    }
+
+    internal static void ResetInstanceIfClosed(Window window)
+    {
+        if (ReferenceEquals(_instance, window))
+            _instance = null;
     }
 
     private readonly PanelBoundsState _bounds = new();
@@ -33,6 +48,7 @@ public partial class TranslationResultWindow : System.Windows.Window
             () => FloatingPanelWindowActions.Minimize(this, RememberPlacement),
             () => PanelBoundsActions.ToggleMaximize(this, _bounds, MaxButton),
             OnClosePanel);
+        FloatingPanelWindowActions.WireHideInsteadOfClose(this, OnClosePanel);
         FloatingPanelChrome.WireHiddenScroll(ContentScroll);
         WindowResizeHelper.Wire(ResizeRight, this, ResizeEdge.Right);
         WindowResizeHelper.Wire(ResizeBottom, this, ResizeEdge.Bottom);
@@ -58,17 +74,35 @@ public partial class TranslationResultWindow : System.Windows.Window
         var config = new ConfigService().Load();
         if (config.SuppressPanelAfterUserClose)
             SuppressAutoShowUntilManualOpen = true;
+
+        OverlayWindow.HideActive();
+        HoverGuard.PauseFor(1200);
         FloatingPanelWindowActions.HidePanel(this, RememberPlacement);
     }
 
-    public static void EnsureVisible()
+    public static void EnsureVisible(bool clearSuppress = false)
     {
-        SuppressAutoShowUntilManualOpen = false;
+        if (clearSuppress)
+            SuppressAutoShowUntilManualOpen = false;
+        ShowPanelCore();
+    }
+
+    /// <summary>托盘/用户主动打开译文窗：解除「关闭后不再自动弹出大窗」。</summary>
+    public static void OpenFromTray() => EnsureVisible(clearSuppress: true);
+
+    private static void ShowPanelCore()
+    {
         var w = Instance;
         var config = new ConfigService().Load();
         w.ResetLayout();
         w.ApplyAppearance(config.TranslationPanelUi);
         FloatingPanelWindowActions.RestoreFromTaskbar(w);
+    }
+
+    public static void HideIfVisible()
+    {
+        if (!IsPanelVisible) return;
+        FloatingPanelWindowActions.HidePanel(Instance, () => { });
     }
 
     private void ResetLayout()
@@ -107,15 +141,20 @@ public partial class TranslationResultWindow : System.Windows.Window
         CancelAutoClose();
     }
 
-    public void ShowCurrent(string source, string target, string provider)
+    public void ShowCurrent(TranslationResult result)
     {
         var config = new ConfigService().Load();
         CopyButton.Content = "复制译文";
         ApplyAppearance(config.TranslationPanelUi);
 
         if (ExtrasPanel.Visibility == System.Windows.Visibility.Visible)
-            StatusText.Text = string.IsNullOrEmpty(provider) ? "翻译完成" : $"翻译完成 · {provider}";
+        {
+            var suffix = result.FormatStatusSuffix();
+            StatusText.Text = string.IsNullOrEmpty(suffix) ? "翻译完成" : $"翻译完成 · {suffix}";
+        }
 
+        var source = result.SourceText;
+        var target = result.TranslatedText;
         if (string.IsNullOrWhiteSpace(target))
             target = source;
 
@@ -126,6 +165,11 @@ public partial class TranslationResultWindow : System.Windows.Window
         ContentScroll.ScrollToTop();
         if (config.OverlayTimeoutMs > 0)
             ScheduleAutoClose(config.OverlayTimeoutMs);
+    }
+
+    public void ShowCurrent(string source, string target, string provider)
+    {
+        ShowCurrent(TranslationResult.Ok(source, target, provider));
     }
 
     public void ShowError(string message)
@@ -195,7 +239,7 @@ public partial class TranslationResultWindow : System.Windows.Window
 
         try
         {
-            System.Windows.Clipboard.SetText(text);
+            ClipboardGuard.SetText(text);
             if (ExtrasPanel.Visibility == System.Windows.Visibility.Visible)
                 StatusText.Text = "已复制";
             else

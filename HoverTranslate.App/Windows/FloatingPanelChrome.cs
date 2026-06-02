@@ -47,13 +47,16 @@ internal static class FloatingPanelChrome
         };
     }
 
-    public static void WireAllScrollViewers(DependencyObject root)
+    public static void WireAllScrollViewers(DependencyObject root, Func<ScrollViewer, bool>? skip = null)
     {
         if (root is ScrollViewer sv)
-            WireHiddenScroll(sv);
+        {
+            if (skip?.Invoke(sv) != true)
+                WireHiddenScroll(sv);
+        }
 
         var count = VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < count; i++)
-            WireAllScrollViewers(VisualTreeHelper.GetChild(root, i));
+            WireAllScrollViewers(VisualTreeHelper.GetChild(root, i), skip);
     }
 }

@@ -1,8 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using HoverTranslate.App;
+using HoverTranslate.App.Services;
 using HoverTranslate.Core.Models;
 using HoverTranslate.Core.Services;
+using ListBox = System.Windows.Controls.ListBox;
 
 namespace HoverTranslate.App.Windows;
 
@@ -21,12 +26,22 @@ public partial class HistoryPanelWindow : System.Windows.Window
         }
     }
 
+    internal static void ResetInstanceIfClosed(Window window)
+    {
+        if (ReferenceEquals(_instance, window))
+            _instance = null;
+    }
+
     private readonly PanelBoundsState _bounds = new();
 
     private HistoryPanelWindow()
     {
         InitializeComponent();
         HistoryList.ItemsSource = _items;
+        HistoryList.SelectionMode = System.Windows.Controls.SelectionMode.Extended;
+        HistoryList.PreviewKeyDown += OnHistoryListPreviewKeyDown;
+        WireHistoryContextMenu();
+
         FloatingPanelChrome.ApplyTitleBarButton(MinButton, ChromeIconKind.Minimize, "最小化到任务栏");
         FloatingPanelChrome.ApplyTitleBarButton(MaxButton, ChromeIconKind.Maximize, "最大化（铺满工作区）");
         FloatingPanelChrome.ApplyTitleBarButton(CloseButton, ChromeIconKind.Close, "关闭");
@@ -34,15 +49,61 @@ public partial class HistoryPanelWindow : System.Windows.Window
             () => FloatingPanelWindowActions.Minimize(this, RememberPlacement),
             () => PanelBoundsActions.ToggleMaximize(this, _bounds, MaxButton),
             () => FloatingPanelWindowActions.HidePanel(this, RememberPlacement));
+        FloatingPanelWindowActions.WireHideInsteadOfClose(this,
+            () => FloatingPanelWindowActions.HidePanel(this, RememberPlacement));
         FloatingPanelChrome.WireHiddenScroll(HistoryScroll);
         WindowResizeHelper.Wire(ResizeRight, this, ResizeEdge.Right);
         WindowResizeHelper.Wire(ResizeBottom, this, ResizeEdge.Bottom);
         WindowResizeHelper.Wire(ResizeCorner, this, ResizeEdge.BottomRight);
-        FloatingPanelContextMenu.AttachHistoryListMenu(
-            HistoryList,
-            () => HistoryList.SelectedItem is HistoryItemVm item ? item.GetCopyText() : null,
-            BuildAllHistoryCopyText);
         Hide();
+    }
+
+    private void WireHistoryContextMenu()
+    {
+        var menu = new ContextMenu();
+        var copyOne = new MenuItem { Header = "复制本条" };
+        copyOne.Click += (_, _) => CopySelectedEntries(selectAllFirst: false);
+        var copyAll = new MenuItem { Header = "复制全部记录" };
+        copyAll.Click += (_, _) => CopySelectedEntries(selectAllFirst: true);
+        var selectAll = new MenuItem { Header = "全选" };
+        selectAll.Click += (_, _) => HistoryList.SelectAll();
+        menu.Items.Add(copyOne);
+        menu.Items.Add(copyAll);
+        menu.Items.Add(selectAll);
+        menu.Opened += (_, _) =>
+        {
+            if (HistoryList.SelectedItems.Count == 0 && TryGetItemUnderMouse(out var item))
+                HistoryList.SelectedItem = item;
+        };
+        HistoryList.ContextMenu = menu;
+    }
+
+    private void OnHistoryListPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            HistoryList.SelectAll();
+            e.Handled = true;
+        }
+    }
+
+    private bool TryGetItemUnderMouse(out HistoryItemVm? item)
+    {
+        item = null;
+        var pos = HistoryList.MousePosition();
+        var element = HistoryList.InputHitTest(pos) as DependencyObject;
+        while (element is not null)
+        {
+            if (element is ListBoxItem { DataContext: HistoryItemVm vm })
+            {
+                item = vm;
+                return true;
+            }
+
+            element = System.Windows.Media.VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
     }
 
     private static string BuildAllHistoryCopyText()
@@ -50,14 +111,73 @@ public partial class HistoryPanelWindow : System.Windows.Window
         var sb = new StringBuilder();
         foreach (HistoryItemVm item in Instance._items)
         {
-            var block = item.GetCopyText();
+            var block = HistoryTextFormat.FormatExportBlock(item.FullSource, item.FullTarget);
             if (string.IsNullOrWhiteSpace(block)) continue;
             if (sb.Length > 0)
-                sb.AppendLine().AppendLine("---").AppendLine();
+                sb.Append(HistoryTextFormat.EntryDelimiter);
             sb.Append(block);
         }
 
         return sb.ToString();
+    }
+
+    private void CopySelectedEntries(bool selectAllFirst)
+    {
+        if (_items.Count == 0 || _items[0].FullSource == "" && _items[0].PrimaryPreview.StartsWith("未开启"))
+        {
+            AppDialog.Info("暂无历史记录可复制。", AppBranding.DisplayName, this);
+            return;
+        }
+
+        if (selectAllFirst)
+        {
+            HistoryList.SelectAll();
+        }
+        else
+        {
+            if (HistoryList.SelectedItems.Count == 0)
+            {
+                if (TryGetItemUnderMouse(out var under) && under is not null)
+                    HistoryList.SelectedItem = under;
+                else
+                {
+                    AppDialog.Info("请先选中一条历史记录。", AppBranding.DisplayName, this);
+                    return;
+                }
+            }
+            else if (HistoryList.SelectedItems.Count > 1)
+            {
+                // 复制本条：仅保留右键所在或最后选中的一条
+                if (TryGetItemUnderMouse(out var under) && under is not null)
+                {
+                    HistoryList.SelectedItem = under;
+                }
+                else if (HistoryList.SelectedItem is HistoryItemVm one)
+                {
+                    HistoryList.SelectedItem = one;
+                }
+            }
+        }
+
+        string text;
+        if (selectAllFirst)
+            text = BuildAllHistoryCopyText();
+        else if (HistoryList.SelectedItem is HistoryItemVm item)
+            text = item.GetCopyText();
+        else
+            return;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        try
+        {
+            ClipboardGuard.SetText(text);
+        }
+        catch (Exception ex)
+        {
+            AppDialog.Warning($"复制失败：{ex.Message}", AppBranding.DisplayName, this);
+        }
     }
 
     private void RememberPlacement()
@@ -80,8 +200,11 @@ public partial class HistoryPanelWindow : System.Windows.Window
                 w._items.Clear();
                 w._items.Add(new HistoryItemVm
                 {
-                    TargetPreview = "未开启历史保存，请在设置 → 历史窗 中勾选。",
-                    SourcePreview = ""
+                    PrimaryPreview = "未开启历史保存，请在设置 → 历史窗 中勾选。",
+                    SecondaryPreview = "",
+                    FullSource = "",
+                    FullTarget = "",
+                    Provider = ""
                 });
                 w.UpdateFooterText(0);
                 return;
@@ -106,35 +229,38 @@ public partial class HistoryPanelWindow : System.Windows.Window
     public void ApplyAppearance(PanelChromeOptions options)
     {
         FloatingPanelChrome.ApplyAppearance(this, RootBorder, options);
+        Background = System.Windows.Media.Brushes.Transparent;
+        ResizeHost.Background = System.Windows.Media.Brushes.Transparent;
+        HistoryScroll.Background = System.Windows.Media.Brushes.Transparent;
+        HistoryList.Background = System.Windows.Media.Brushes.Transparent;
+
         var colors = PanelAppearance.GetTheme(options.Theme);
         HistoryList.Foreground = new System.Windows.Media.SolidColorBrush(colors.Text);
         HistoryList.FontFamily = PanelAppearance.ResolveFontFamily(options.FontFamilyName);
-        HistoryList.FontSize = Math.Round(12.0 * options.FontSizeScale, 1);
+        HistoryList.FontSize = Math.Round(13.0 * options.FontSizeScale, 1);
         HistoryCountText.Foreground = new System.Windows.Media.SolidColorBrush(colors.SubText);
 
-        var showExtras = options.ShowExtras;
-        HistoryCountText.Visibility = showExtras
+        HistoryCountText.Visibility = options.ShowExtras
             ? System.Windows.Visibility.Visible
             : System.Windows.Visibility.Collapsed;
-        OpenInTranslationButton.Visibility = showExtras
-            ? System.Windows.Visibility.Visible
-            : System.Windows.Visibility.Collapsed;
-        CopyHistoryButton.Visibility = System.Windows.Visibility.Visible;
     }
 
     public void ReloadHistory(HistoryStore store)
     {
         _items.Clear();
+        HistoryList.UnselectAll();
         var entries = store.GetRecent(80);
         foreach (var entry in entries)
         {
-            var showSource = !string.Equals(entry.Source.Trim(), entry.Target.Trim(), StringComparison.Ordinal);
+            var source = entry.Source?.Trim() ?? "";
+            var target = entry.Target?.Trim() ?? "";
+            var showBoth = !string.Equals(source, target, StringComparison.Ordinal);
             _items.Add(new HistoryItemVm
             {
-                SourcePreview = showSource ? entry.Source : "",
-                TargetPreview = entry.Target,
-                FullSource = entry.Source,
-                FullTarget = entry.Target,
+                PrimaryPreview = source,
+                SecondaryPreview = showBoth ? target : "",
+                FullSource = entry.Source ?? "",
+                FullTarget = entry.Target ?? "",
                 Provider = entry.Provider
             });
         }
@@ -145,87 +271,44 @@ public partial class HistoryPanelWindow : System.Windows.Window
     private void UpdateFooterText(int count) =>
         HistoryCountText.Text = count == 0 ? "暂无记录" : $"共 {count} 条";
 
-    private void OnHistorySelected(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    private void OnHistorySelected(object sender, SelectionChangedEventArgs e)
     {
-        // 仅选中高亮，不自动打开译文窗或触发翻译（避免与悬停逻辑混淆）
+        // 选中高亮由 ListBox Extended 模式提供视觉反馈
     }
 
-    private void OnCopySelected(object sender, System.Windows.RoutedEventArgs e)
+    private void OnExportHistory(object sender, System.Windows.RoutedEventArgs e)
     {
-        string text;
-        if (HistoryList.SelectedItem is HistoryItemVm item)
-            text = item.GetCopyText();
-        else
-            text = BuildAllHistoryCopyText();
-
-        if (string.IsNullOrWhiteSpace(text))
+        var config = new ConfigService().Load();
+        if (!config.EnableHistory)
         {
-            AppDialog.Info(
-                HistoryList.SelectedItem is null
-                    ? "暂无历史记录可复制。"
-                    : "请先选中一条历史记录。",
-                AppBranding.DisplayName,
-                this);
+            AppDialog.Info("未开启历史保存，请在设置 → 历史窗 中勾选。", AppBranding.DisplayName, this);
             return;
         }
 
-        try
+        var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            System.Windows.Clipboard.SetText(text);
-            CopyHistoryButton.Content = "已复制";
-        }
-        catch (Exception ex)
-        {
-            AppDialog.Warning($"复制失败：{ex.Message}", AppBranding.DisplayName, this);
-        }
-    }
-
-    private async void OnImportHistory(object sender, System.Windows.RoutedEventArgs e)
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "导入翻译历史",
-            Filter = "JSON 文件|*.json"
+            Title = "导出翻译历史",
+            Filter = "文本文件（可读）|*.txt|JSON 备份（可导入）|*.json",
+            FileName = $"xuanyi-history-{DateTime.Now:yyyyMMdd}.txt",
+            DefaultExt = ".txt"
         };
 
         if (dialog.ShowDialog() != true)
             return;
 
-        var mode = await AppDialog.AskImportHistoryModeAsync(AppBranding.DisplayName, this).ConfigureAwait(true);
-        if (mode is null)
-            return;
-
-        var merge = mode == AppDialog.ImportHistoryMode.Merge;
-
-        IsEnabled = false;
         try
         {
-            var path = dialog.FileName;
-            var count = await System.Threading.Tasks.Task.Run(() =>
-            {
-                using var store = new HistoryStore();
-                return store.ImportFromJsonFile(path, merge);
-            }).ConfigureAwait(true);
-
-            using var fresh = new HistoryStore();
-            ReloadHistory(fresh);
-            AppDialog.Info($"已导入 {count} 条记录。", owner: this);
+            using var store = new HistoryStore();
+            if (dialog.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                store.ExportToJsonFile(dialog.FileName);
+            else
+                store.ExportToTextFile(dialog.FileName);
+            AppDialog.Info($"已导出到：{dialog.FileName}", owner: this);
         }
         catch (Exception ex)
         {
-            AppDialog.Warning($"导入失败：{ex.Message}", owner: this);
+            AppDialog.Warning($"导出失败：{ex.Message}", owner: this);
         }
-        finally
-        {
-            IsEnabled = true;
-        }
-    }
-
-    private void OnOpenInTranslation(object sender, System.Windows.RoutedEventArgs e)
-    {
-        if (HistoryList.SelectedItem is not HistoryItemVm item) return;
-        TranslationResultWindow.EnsureVisible();
-        TranslationResultWindow.Instance.ShowCurrent(item.FullSource, item.FullTarget, item.Provider);
     }
 
     private void OnClearHistory(object sender, System.Windows.RoutedEventArgs e)
@@ -245,8 +328,8 @@ public partial class HistoryPanelWindow : System.Windows.Window
 
     private sealed class HistoryItemVm
     {
-        public string SourcePreview { get; init; } = "";
-        public string TargetPreview { get; init; } = "";
+        public string PrimaryPreview { get; init; } = "";
+        public string SecondaryPreview { get; init; } = "";
         public string FullSource { get; init; } = "";
         public string FullTarget { get; init; } = "";
         public string Provider { get; init; } = "";
@@ -254,4 +337,10 @@ public partial class HistoryPanelWindow : System.Windows.Window
         public string GetCopyText() =>
             TranslationCopyText.Combine(FullSource, FullTarget);
     }
+}
+
+internal static class ListBoxMouseExtensions
+{
+    public static System.Windows.Point MousePosition(this ListBox list) =>
+        System.Windows.Input.Mouse.GetPosition(list);
 }

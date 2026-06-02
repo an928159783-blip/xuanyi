@@ -12,7 +12,7 @@ public static class ProfileTranslatorFactory
         {
             ApiProfileKinds.Microsoft => new MicrosoftTranslator(profile, config),
             ApiProfileKinds.Google => new GoogleTranslator(profile, config),
-            _ => new GenericLlmTranslator(ProviderResolver.ToLlmConfig(profile), profile.Id, config, glossary)
+            _ => new GenericLlmTranslator(profile, config, glossary)
         };
     }
 }
