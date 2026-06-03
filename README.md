@@ -26,18 +26,33 @@ Windows 托盘热键与悬停翻译工具。支持 **OpenAI 兼容**、**微软 
 - [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（运行已 publish 的 exe 时需要）
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)（仅开发/编译）
 
-## 安装 / 升级（1.0）
+## 安装 / 升级
 
-1. 解压 `dist\XuanYi-1.0.0-win-x64.zip` 或 `publish\` 目录
-2. 运行 `HoverTranslate.exe`；或 `.\scripts\create-desktop-shortcut.ps1` 创建桌面「炫译」
-3. **升级前** 托盘 → **退出炫译**（运行中进程不会加载新 exe）
+**普通用户（推荐）：**
 
-发行说明见 [docs/RELEASE-NOTES-1.0.0.md](docs/RELEASE-NOTES-1.0.0.md)；回归见 [docs/REGRESSION-translate-paths.md](docs/REGRESSION-translate-paths.md)。
+1. 打开 [Releases](https://github.com/an928159783-blip/xuanyi/releases)，下载最新 `XuanYi-*-win-x64.zip`
+2. 安装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（若尚未安装）
+3. 解压后运行 `HoverTranslate.exe`
+4. **升级前** 托盘 → **退出炫译**（运行中进程不会加载新 exe）
 
-## 快速开始
+**从源码构建：**
 
 ```powershell
-cd $env:USERPROFILE\Projects\hover-translate
+git clone https://github.com/an928159783-blip/xuanyi.git
+cd xuanyi
+dotnet publish HoverTranslate.App\HoverTranslate.App.csproj -c Release -r win-x64 --self-contained false
+# 输出在 HoverTranslate.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\
+```
+
+可选：`.\scripts\create-desktop-shortcut.ps1` 创建桌面「炫译」快捷方式。
+
+发行说明见 [docs/RELEASE-NOTES-1.0.1.md](docs/RELEASE-NOTES-1.0.1.md)；回归见 [docs/REGRESSION-translate-paths.md](docs/REGRESSION-translate-paths.md)。
+
+## 快速开始（开发）
+
+```powershell
+git clone https://github.com/an928159783-blip/xuanyi.git
+cd xuanyi
 dotnet build -c Release
 dotnet run --project HoverTranslate.App -c Release
 ```

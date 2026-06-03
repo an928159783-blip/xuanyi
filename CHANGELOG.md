@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-05-21
+
+### Fixed
+- App update check: correct GitHub Releases URL and online latest-release detection (`AppBranding`).
+
+### Changed
+- Publish bundle excludes debug symbols (`.pdb`) and internal compliance memo from install package.
+- README and release notes aligned for public GitHub distribution.
+
 ## [1.0.0] - 2026-06-02
 
 ### Added
@@ -38,6 +47,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Core unit tests and smoke test script.
 - Portable publish and desktop launcher scripts.
 
-[Unreleased]: https://github.com/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/releases/tag/v1.0.0
-[0.1.0]: https://github.com/releases/tag/v0.1.0
+[Unreleased]: https://github.com/an928159783-blip/xuanyi/compare/v1.0.1...develop
+[1.0.1]: https://github.com/an928159783-blip/xuanyi/releases/tag/v1.0.1
+[1.0.0]: https://github.com/an928159783-blip/xuanyi/releases/tag/v1.0.0
+[0.1.0]: https://github.com/an928159783-blip/xuanyi/releases/tag/v0.1.0
