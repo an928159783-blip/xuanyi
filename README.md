@@ -4,9 +4,13 @@ Windows 托盘热键与悬停翻译工具。支持 **OpenAI 兼容**、**微软 
 
 密钥仅存本机 `%USERPROFILE%\.hover-translate\`，详见 [SECURITY.md](SECURITY.md)。
 
-## 许可证
+## 开源
 
-[MIT](LICENSE) · 变更见 [CHANGELOG.md](CHANGELOG.md) · 分支策略见 [docs/branch-strategy.md](docs/branch-strategy.md)。
+本项目以 [MIT](LICENSE) 发布，Copyright © 2026 **沧溟散人**。欢迎 Issue 与 PR。
+
+- **下载安装包：** [Releases](https://github.com/an928159783-blip/xuanyi/releases)
+- **变更记录：** [CHANGELOG.md](CHANGELOG.md)
+- **分支策略：** [docs/branch-strategy.md](docs/branch-strategy.md)
 
 ## 功能
 
