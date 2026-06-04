@@ -17,6 +17,8 @@ public sealed class SelectionCaptureService
 
         // 在清空剪贴板或模拟复制之前，保留用户已 Ctrl+C 的内容
         var clipBeforeHotkey = _clipboard.TryGetText();
+        if (_clipboard.HasPriorityNonTextContent())
+            clipBeforeHotkey = null;
 
         PrepareAfterHotkey();
 
@@ -76,6 +78,9 @@ public sealed class SelectionCaptureService
 
     private string? TryCopyClearAndCtrlC()
     {
+        if (_clipboard.HasPriorityNonTextContent())
+            return null;
+
         if (IsUsefulTranslatableText(_clipboard.TryGetText()))
             return _clipboard.TryGetText();
 
@@ -93,12 +98,14 @@ public sealed class SelectionCaptureService
             return captured;
         }
 
-        backup.Dispose();
         return null;
     }
 
     private string? TryCopyMessage(IntPtr hwnd)
     {
+        if (_clipboard.HasPriorityNonTextContent())
+            return null;
+
         if (IsUsefulTranslatableText(_clipboard.TryGetText()))
             return _clipboard.TryGetText();
 
@@ -116,7 +123,6 @@ public sealed class SelectionCaptureService
             return captured;
         }
 
-        backup.Dispose();
         return null;
     }
 

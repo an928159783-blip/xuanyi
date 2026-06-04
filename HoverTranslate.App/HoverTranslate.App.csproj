@@ -11,7 +11,7 @@
     <Product>炫译</Product>
     <AssemblyTitle>炫译</AssemblyTitle>
     <Description>炫译 — 悬停与热键翻译</Description>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <ApplicationIcon>Assets\xuanyi.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
